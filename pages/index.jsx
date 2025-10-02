@@ -59,6 +59,7 @@ export default function Home() {
   const [cvSkills, setCvSkills] = useState("");
   const [cvExp, setCvExp] = useState("");
   const [cvEdu, setCvEdu] = useState("");
+  const [photoUrl, setPhotoUrl] = useState(""); // <-- NOUVEAU : URL Photo
 
   // ===== Utils upload + extract =====
   function toBase64(buf){
@@ -144,8 +145,14 @@ ${cvEdu || ""}
   async function exportCVPro(){
     if(!outJSON) return;
 
+    // on fusionne la photo entrée manuellement avec le profil généré
+    const profile = {
+      ...(outJSON.profile || {}),
+      ...(photoUrl?.trim() ? { photoUrl: photoUrl.trim() } : {})
+    };
+
     const props = {
-      profile: outJSON.profile,
+      profile,
       skills: outJSON.skills || [],
       languages: outJSON.languages || [],
       hobbies: outJSON.hobbies || [],
@@ -179,7 +186,12 @@ ${cvEdu || ""}
   // ===== Export PDF Lettre =====
   async function exportLetterPDF(){
     if(!outLetter) return;
-    const blob = await pdf(<LetterPDF profile={outLetter.profile} letter={outLetter.letter} />).toBlob();
+    // idem : si tu as renseigné la photo, on l’ajoute aussi à la lettre
+    const profile = {
+      ...(outLetter.profile || {}),
+      ...(photoUrl?.trim() ? { photoUrl: photoUrl.trim() } : {})
+    };
+    const blob = await pdf(<LetterPDF profile={profile} letter={outLetter.letter} />).toBlob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url; a.download = "Lettre_de_motivation.pdf"; a.click();
@@ -267,6 +279,20 @@ ${cvEdu || ""}
                    value={cvLocation} onChange={e=>setCvLocation(e.target.value)} placeholder="Paris, France" />
           </div>
 
+          {/* NOUVEAU : URL photo */}
+          <div className="mt-4">
+            <label className="block text-white/70 mb-2 font-medium">URL photo (optionnel)</label>
+            <input
+              className="w-full rounded-xl border border-white/15 bg-[#0f1526] text-white p-3"
+              value={photoUrl}
+              onChange={e=>setPhotoUrl(e.target.value)}
+              placeholder="https://exemple.com/ma-photo.jpg"
+            />
+            <div className="text-white/60 text-xs mt-1">
+              Utilisez un lien public (400×400px recommandé). La photo apparaît dans certains templates.
+            </div>
+          </div>
+
           <div className="mt-4">
             <label className="block text-white/70 mb-2 font-medium">Résumé (À propos)</label>
             <textarea className="w-full min-h-[120px] rounded-xl border border-white/15 bg-[#0f1526] text-white p-3"
@@ -338,4 +364,45 @@ ${cvEdu || ""}
             L’IA va générer la lettre automatiquement à partir de votre CV (upload ou formulaire) et de l’offre.
           </p>
 
-          <d
+          <div className="flex gap-3 flex-wrap mt-4">
+            <button
+              className="inline-flex items-center justify-center rounded-xl px-4 py-3 text-white bg-gradient-to-br from-accent to-indigo-600 hover:brightness-110 disabled:opacity-60"
+              onClick={generateLetter}
+              disabled={loading || (!offre || (!cvText && !cvName && !cvTitle))}
+            >
+              {loading ? "Génération Lettre…" : "Générer la lettre automatiquement"}
+            </button>
+            <button
+              className="inline-flex items-center justify-center rounded-xl px-4 py-3 text-white bg-gradient-to-br from-pink-400 to-rose-600 hover:brightness-110 disabled:opacity-60"
+              onClick={exportLetterPDF}
+              disabled={!outLetter}
+            >
+              Exporter Lettre PDF
+            </button>
+          </div>
+        </div>
+
+        {/* Erreurs */}
+        {err && <div className="text-red-400 mt-3">❌ {err}</div>}
+
+        {/* Aperçus (debug) */}
+        {outJSON && (
+          <div className="border border-white/10 rounded-2xl shadow-soft bg-gradient-to-b from-card1 to-card2 p-5 mt-4">
+            <label className="block text-white/70 mb-2 font-medium">Données CV (aperçu)</label>
+            <pre className="whitespace-pre-wrap m-0 p-3 rounded-xl border border-white/10 bg-[#0e1426] text-[#e9ecf6]">
+{JSON.stringify(outJSON, null, 2)}
+            </pre>
+          </div>
+        )}
+        {outLetter && (
+          <div className="border border-white/10 rounded-2xl shadow-soft bg-gradient-to-b from-card1 to-card2 p-5 mt-4">
+            <label className="block text-white/70 mb-2 font-medium">Lettre générée (aperçu)</label>
+            <pre className="whitespace-pre-wrap m-0 p-3 rounded-xl border border-white/10 bg-[#0e1426] text-[#e9ecf6]">
+{outLetter.letter || ""}
+            </pre>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
