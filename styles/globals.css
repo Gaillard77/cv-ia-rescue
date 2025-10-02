@@ -1,16 +1,73 @@
-:root{--bg:#0b0f19;--card:#121829;--muted:#9aa5b1;--text:#e6e9ef;--accent:#7c5cff;--accent2:#4dd4ac}
+:root{
+  --bg:#0b0f19; --bg2:#0a0f1d; --card:#11182b; --card2:#0f1526;
+  --text:#e6e9ef; --muted:#a9b3c7; --line:#22314a;
+  --accent:#7c5cff; --accent2:#57d6b3; --danger:#ff6b6b;
+  --shadow: 0 10px 30px rgba(0,0,0,.25);
+}
+
 *{box-sizing:border-box}
-body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,#0b0f19,#0a0d15 60%,#080b12);color:var(--text)}
-.container{width:min(1100px,92vw);margin:0 auto;padding:28px 0}
-h1,h2{margin:0 0 10px}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.card{background:linear-gradient(180deg,#121829,#0f1526);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:18px}
-label{display:block;margin:6px 0 8px;color:var(--muted)}
-textarea{width:100%;min-height:220px;padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:#0f1526;color:var(--text)}
-input[type=file]{display:block;margin:4px 0 10px}
-.btn{padding:12px 16px;border-radius:12px;border:0;background:linear-gradient(135deg,var(--accent),#5a3cff);color:#fff;cursor:pointer}
-.btn:disabled{opacity:.7;cursor:not-allowed}
-.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
-.badge{font-size:12px;border:1px solid rgba(124,92,255,.35);background:rgba(124,92,255,.14);padding:4px 8px;border-radius:999px}
-pre{white-space:pre-wrap}
-@media(max-width:900px){.grid{grid-template-columns:1fr}}
+html,body{height:100%}
+body{
+  margin:0; background:linear-gradient(180deg,var(--bg),var(--bg2) 60%,#080c14);
+  color:var(--text); font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+}
+
+.container{width:min(1100px,92vw); margin:0 auto; padding:28px 0 56px}
+.header{
+  display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px;
+}
+.brand{
+  display:flex; align-items:center; gap:12px;
+}
+.logo{
+  width:40px; height:40px; border-radius:12px;
+  background:linear-gradient(135deg,var(--accent),#5a3cff); box-shadow:var(--shadow);
+}
+.title{margin:0; font-size:22px}
+.badge{font-size:12px; border:1px solid rgba(124,92,255,.35); background:rgba(124,92,255,.18); padding:4px 10px; border-radius:999px}
+
+.grid{display:grid; grid-template-columns:1fr 1fr; gap:16px}
+@media (max-width:920px){ .grid{ grid-template-columns:1fr } }
+
+.card{
+  border:1px solid rgba(255,255,255,.08); background:linear-gradient(180deg,var(--card),var(--card2));
+  border-radius:18px; padding:18px; box-shadow:var(--shadow);
+}
+
+label{display:block; margin:6px 0 10px; color:var(--muted); font-weight:500}
+textarea{
+  width:100%; min-height:220px; padding:12px; border-radius:14px;
+  border:1px solid rgba(255,255,255,.12); background:#0f1526; color:var(--text);
+}
+input[type=file]{display:block; margin:4px 0 10px}
+
+.toolbar{display:flex; gap:12px; flex-wrap:wrap; margin-top:14px}
+.btn{
+  padding:12px 16px; border-radius:12px; border:0; color:#fff; cursor:pointer; transition:transform .12s ease, opacity .2s;
+}
+.btn:disabled{opacity:.6; cursor:not-allowed}
+.btn:hover{transform:translateY(-1px)}
+.btn-primary{background:linear-gradient(135deg,var(--accent),#5a3cff)}
+.btn-ghost{background:transparent; border:1px solid rgba(255,255,255,.18); color:var(--text)}
+.btn-ghost:hover{background:rgba(255,255,255,.06)}
+.btn-success{background:linear-gradient(135deg,var(--accent2),#3dbb97)}
+
+.kpis{display:flex; gap:12px; flex-wrap:wrap; margin-top:8px}
+.kpi{
+  background:rgba(124,92,255,.14); border:1px solid rgba(124,92,255,.28);
+  padding:8px 12px; border-radius:10px; font-size:13px; color:#d8d5ff;
+}
+
+.results{
+  display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:18px;
+}
+.results .full{grid-column:1 / -1}
+@media (max-width:920px){ .results{ grid-template-columns:1fr } }
+
+pre{
+  white-space:pre-wrap; margin:0; padding:12px; border-radius:12px;
+  background:#0e1426; border:1px solid rgba(255,255,255,.10); color:#e9ecf6;
+}
+
+.note{color:var(--muted); font-size:13px; margin-top:6px}
+.error{color:va
