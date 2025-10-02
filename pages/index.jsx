@@ -1,16 +1,11 @@
 // pages/index.jsx
 import { useState } from "react";
 import {
-  pdf,
-  Document,
-  Page,
-  Text,
-  View,
-  StyleSheet
+  pdf, Document, Page, Text, View, StyleSheet
 } from "@react-pdf/renderer";
 import CVProModern from "../components/pdf/CVProModern"; // adapte le chemin si besoin
 
-// Petit composant PDF pour la Lettre (moderne et propre)
+// --- Composant PDF pour la Lettre ---
 const letterStyles = StyleSheet.create({
   page: { padding: 28, fontFamily: "Helvetica" },
   h1: { fontSize: 16, fontWeight: 700, marginBottom: 10, color: "#0e1a2b" },
@@ -35,9 +30,10 @@ function LetterPDF({ profile = {}, letter = "" }) {
 
 export default function Home() {
   // ===== États principaux =====
-  const [cv, setCv] = useState("");           // texte CV importé (extrait)
-  const [offre, setOffre] = useState("");     // texte de l'offre
-  const [outJSON, setOutJSON] = useState(null); // résultat structuré pour le CV
+  const [cvText, setCvText] = useState("");        // texte CV extrait (upload)
+  const [offre, setOffre] = useState("");          // texte de l'offre
+  const [outJSON, setOutJSON] = useState(null);    // résultat structuré pour le CV
+  const [outLetter, setOutLetter] = useState(null);// profil + lettre générée
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(null);
   const [extracting, setExtracting] = useState(false);
@@ -53,102 +49,89 @@ export default function Home() {
   const [cvExp, setCvExp] = useState("");
   const [cvEdu, setCvEdu] = useState("");
 
-  // ===== États de la lettre =====
-  const [motivation, setMotivation] = useState("");
-  const [outLetter, setOutLetter] = useState(null); // JSON structuré utilisé pour la lettre
-
   // ===== Utils upload + extract =====
-  function toBase64(buf) {
-    let binary = "";
-    const bytes = new Uint8Array(buf);
-    for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
-    return typeof btoa !== "undefined" ? btoa(binary) : Buffer.from(binary, "binary").toString("base64");
+  function toBase64(buf){
+    let binary=""; const bytes=new Uint8Array(buf);
+    for(let i=0;i<bytes.byteLength;i++) binary+=String.fromCharCode(bytes[i]);
+    return typeof btoa!=="undefined" ? btoa(binary) : Buffer.from(binary,"binary").toString("base64");
   }
-  async function onFile(e) {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    setErr(null);
-    setExtracting(true);
-    try {
+  async function onFile(e){
+    const f = e.target.files?.[0]; if(!f) return;
+    setErr(null); setExtracting(true);
+    try{
       const buf = await f.arrayBuffer();
       const r = await fetch("/api/extract", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
         body: JSON.stringify({ fileName: f.name, fileBase64: toBase64(buf) })
       });
       const data = await r.json();
-      if (!r.ok) throw new Error(data?.error || "Extraction échouée");
-      setCv(data.text);
-    } catch (e) {
-      setErr(e.message || "Erreur d'extraction");
-    } finally {
-      setExtracting(false);
-    }
+      if(!r.ok) throw new Error(data?.error || "Extraction échouée");
+      setCvText(data.text);
+    }catch(e){ setErr(e.message || "Erreur d'extraction"); }
+    finally{ setExtracting(false); }
   }
 
-  // ===== Génération CV (JSON) avec fallback formulaire minimal =====
-  async function generateCV() {
-    setLoading(true); setErr(null); setOutJSON(null);
-    try {
-      let baseText = cv;
-      if (!baseText) {
-        baseText = `
-Nom: ${cvName}
-Titre: ${cvTitle}
-Email: ${cvEmail}
-Téléphone: ${cvPhone}
-Lieu: ${cvLocation}
-Résumé: ${cvSummary}
+  // ===== Construit automatiquement un "texte CV de base" =====
+  function buildBaseCVText(){
+    if (cvText && cvText.trim()) return cvText.trim();
+    return `
+Nom: ${cvName || ""}
+Titre: ${cvTitle || ""}
+Email: ${cvEmail || ""}
+Téléphone: ${cvPhone || ""}
+Lieu: ${cvLocation || ""}
+Résumé: ${cvSummary || ""}
 
-Compétences: ${cvSkills}
+Compétences: ${cvSkills || ""}
 
 Expériences:
-${cvExp}
+${cvExp || ""}
 
 Formation:
-${cvEdu}
+${cvEdu || ""}
 `.trim();
-      }
+  }
 
+  // ===== Génération CV (JSON) =====
+  async function generateCV(){
+    setLoading(true); setErr(null); setOutJSON(null);
+    try{
+      const baseText = buildBaseCVText();
+      if(!offre || !offre.trim()) throw new Error("Ajoutez d’abord le texte de l’offre.");
       const r = await fetch("/api/generate-json", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
         body: JSON.stringify({ cvText: baseText, jobText: offre })
       });
       const data = await r.json();
-      if (!r.ok) throw new Error(data?.error || "Erreur serveur");
+      if(!r.ok) throw new Error(data?.error || "Erreur serveur");
       setOutJSON(data);
-    } catch (e) {
-      setErr(e.message || "Erreur");
-    } finally {
-      setLoading(false);
-    }
+    }catch(e){ setErr(e.message || "Erreur"); }
+    finally{ setLoading(false); }
   }
 
-  // ===== Génération Lettre (JSON) — séparée du CV =====
-  async function generateLetter() {
+  // ===== Génération Lettre (auto, sans textarea) =====
+  async function generateLetter(){
     setLoading(true); setErr(null); setOutLetter(null);
-    try {
-      // On réutilise la même API : on envoie le contenu de la lettre comme cvText,
-      // et l'offre pour contextualiser.
+    try{
+      const baseText = buildBaseCVText();           // réutilise CV importé ou formulaire
+      if(!offre || !offre.trim()) throw new Error("Ajoutez d’abord le texte de l’offre.");
       const r = await fetch("/api/generate-json", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cvText: motivation, jobText: offre })
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ cvText: baseText, jobText: offre })
       });
       const data = await r.json();
-      if (!r.ok) throw new Error(data?.error || "Erreur serveur");
-      setOutLetter(data); // on récupère data.letter + data.profile
-    } catch (e) {
-      setErr(e.message || "Erreur");
-    } finally {
-      setLoading(false);
-    }
+      if(!r.ok) throw new Error(data?.error || "Erreur serveur");
+      setOutLetter({ profile: data.profile, letter: data.letter }); // on garde la lettre et le profil
+    }catch(e){ setErr(e.message || "Erreur"); }
+    finally{ setLoading(false); }
   }
 
   // ===== Export PDF CV =====
-  async function exportCVPro() {
-    if (!outJSON) return;
+  async function exportCVPro(){
+    if(!outJSON) return;
     const blob = await pdf(
       <CVProModern
         profile={outJSON.profile}
@@ -166,11 +149,9 @@ ${cvEdu}
   }
 
   // ===== Export PDF Lettre =====
-  async function exportLetterPDF() {
-    if (!outLetter) return;
-    const blob = await pdf(
-      <LetterPDF profile={outLetter.profile} letter={outLetter.letter} />
-    ).toBlob();
+  async function exportLetterPDF(){
+    if(!outLetter) return;
+    const blob = await pdf(<LetterPDF profile={outLetter.profile} letter={outLetter.letter} />).toBlob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url; a.download = "Lettre_de_motivation.pdf"; a.click();
@@ -200,7 +181,7 @@ ${cvEdu}
 
         {/* --------- SECTION CV --------- */}
         <div className="grid md:grid-cols-2 gap-4">
-          {/* Upload CV */}
+          {/* Upload CV (sans textarea) */}
           <div className="border border-white/10 rounded-2xl shadow-soft bg-gradient-to-b from-card1 to-card2 p-5">
             <label className="block text-white/70 mb-2 font-medium">Votre CV — importez un fichier</label>
             <input className="mb-2" type="file" accept=".pdf,.docx,.txt" onChange={onFile} />
@@ -222,7 +203,7 @@ ${cvEdu}
           </div>
         </div>
 
-        {/* Formulaire minimal */}
+        {/* Formulaire minimal pour CV */}
         <div className="border border-white/10 rounded-2xl shadow-soft bg-gradient-to-b from-card1 to-card2 p-5 mt-6">
           <h2 className="text-xl font-semibold mb-4">Remplir un CV basique</h2>
 
@@ -286,7 +267,7 @@ ${cvEdu}
             <button
               className="inline-flex items-center justify-center rounded-xl px-4 py-3 text-white bg-gradient-to-br from-accent to-indigo-600 hover:brightness-110 disabled:opacity-60"
               onClick={generateCV}
-              disabled={loading || (!cv && !cvName && !cvTitle)}
+              disabled={loading || (!cvText && !cvName && !cvTitle)}
             >
               {loading ? "Génération CV…" : "Générer CV (JSON structuré)"}
             </button>
@@ -300,23 +281,20 @@ ${cvEdu}
           </div>
         </div>
 
-        {/* --------- SECTION LETTRE --------- */}
+        {/* --------- SECTION LETTRE (auto) --------- */}
         <div className="border border-white/10 rounded-2xl shadow-soft bg-gradient-to-b from-card1 to-card2 p-5 mt-6">
-          <h2 className="text-xl font-semibold mb-4">Lettre de motivation</h2>
-          <label className="block text-white/70 mb-2 font-medium">Rédigez ou collez votre lettre</label>
-          <textarea
-            className="w-full min-h-[180px] rounded-xl border border-white/15 bg-[#0f1526] text-white p-3"
-            value={motivation}
-            onChange={e=>setMotivation(e.target.value)}
-            placeholder="Collez ici votre lettre de motivation ou commencez à écrire…"
-          />
+          <h2 className="text-xl font-semibold mb-2">Lettre de motivation</h2>
+          <p className="text-white/70 text-sm">
+            L’IA va générer la lettre automatiquement à partir de votre CV (upload ou formulaire) et de l’offre.
+          </p>
+
           <div className="flex gap-3 flex-wrap mt-4">
             <button
               className="inline-flex items-center justify-center rounded-xl px-4 py-3 text-white bg-gradient-to-br from-accent to-indigo-600 hover:brightness-110 disabled:opacity-60"
               onClick={generateLetter}
-              disabled={loading || !motivation || !offre}
+              disabled={loading || (!offre || (!cvText && !cvName && !cvTitle))}
             >
-              {loading ? "Génération Lettre…" : "Générer Lettre (JSON structuré)"}
+              {loading ? "Génération Lettre…" : "Générer la lettre automatiquement"}
             </button>
             <button
               className="inline-flex items-center justify-center rounded-xl px-4 py-3 text-white bg-gradient-to-br from-pink-400 to-rose-600 hover:brightness-110 disabled:opacity-60"
@@ -342,7 +320,7 @@ ${cvEdu}
         )}
         {outLetter && (
           <div className="border border-white/10 rounded-2xl shadow-soft bg-gradient-to-b from-card1 to-card2 p-5 mt-4">
-            <label className="block text-white/70 mb-2 font-medium">Lettre (aperçu)</label>
+            <label className="block text-white/70 mb-2 font-medium">Lettre générée (aperçu)</label>
             <pre className="whitespace-pre-wrap m-0 p-3 rounded-xl border border-white/10 bg-[#0e1426] text-[#e9ecf6]">
 {outLetter.letter || ""}
             </pre>
