@@ -1,11 +1,65 @@
 import { useState, useRef } from "react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
+import { pdf, Document, Page, Text, StyleSheet } from "@react-pdf/renderer";
 
 function toBase64(buf){
   let binary=""; const bytes=new Uint8Array(buf);
   for(let i=0;i<bytes.byteLength;i++) binary+=String.fromCharCode(bytes[i]);
   return typeof btoa!=="undefined" ? btoa(binary) : Buffer.from(binary,"binary").toString("base64");
+}
+
+// -------- OCR (PDF scannés) ----------
+async function ocrPdfFile(file, pagesMax = 3){
+  const pdfjs = await import("pdfjs-dist/build/pdf");
+  const workerSrc = await import("pdfjs-dist/build/pdf.worker.mjs"); // nécessaire pour Vercel
+  pdfjs.GlobalWorkerOptions.workerSrc = workerSrc;
+  const Tesseract = (await import("tesseract.js")).default;
+
+  const buf = await file.arrayBuffer();
+  const loadingTask = pdfjs.getDocument({ data: buf });
+  const pdf = await loadingTask.promise;
+
+  let text = "";
+  const pages = Math.min(pdf.numPages, pagesMax);
+  for(let i=1;i<=pages;i++){
+    const page = await pdf.getPage(i);
+    const viewport = page.getViewport({ scale: 2 }); // rendu HD
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = viewport.width; canvas.height = viewport.height;
+    await page.render({ canvasContext: ctx, viewport }).promise;
+
+    const { data: { text: pageText } } = await Tesseract.recognize(
+      canvas, "eng+fra", { logger: () => {} }
+    );
+    text += (pageText || "") + "\n";
+  }
+  return text.replace(/\r/g,"").trim();
+}
+
+// -------- PDF “propre” (mise en page) ----------
+const styles = StyleSheet.create({
+  page: { padding: 28, fontSize: 11, fontFamily: "Helvetica" },
+  h1: { fontSize: 18, marginBottom: 6, fontWeight: 700 },
+  h2: { fontSize: 14, marginTop: 10, marginBottom: 6, fontWeight: 700 },
+  mono: { fontSize: 11, lineHeight: 1.3 }
+});
+function DocPDF({ cv, lettre, checklist, score }){
+  return (
+    <Document>
+      <Page size="A4" style={styles.page}>
+        <Text style={styles.h1}>Candidature générée</Text>
+        <Text>Score ATS estimé : {String(score)}</Text>
+        <Text style={styles.h2}>CV optimisé</Text>
+        <Text style={styles.mono}>{cv}</Text>
+        <Text style={styles.h2}>Lettre de motivation</Text>
+        <Text style={styles.mono}>{lettre}</Text>
+        <Text style={styles.h2}>Checklist entretien</Text>
+        <Text style={styles.mono}>{checklist}</Text>
+      </Page>
+    </Document>
+  );
 }
 
 export default function Home(){
@@ -21,15 +75,23 @@ export default function Home(){
     const f = e.target.files?.[0]; if(!f) return;
     setErr(null); setExtracting(true);
     try{
-      const buf = await f.arrayBuffer();
+      // 1) essai extraction serveur (pdf-parse / mammoth / txt)
       const r = await fetch("/api/extract", {
         method: "POST",
         headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({ fileName: f.name, fileBase64: toBase64(buf) })
+        body: JSON.stringify({ fileName: f.name, fileBase64: toBase64(await f.arrayBuffer()) })
       });
-      const data = await r.json();
-      if(!r.ok) throw new Error(data?.error || "Extraction échouée");
-      setCv(data.text);
+      let data = await r.json();
+      let text = r.ok ? (data.text || "") : "";
+
+      // 2) fallback OCR si extraction vide
+      if(!text){
+        const ocrText = await ocrPdfFile(f);
+        if(ocrText) text = ocrText;
+      }
+
+      if(!text) throw new Error("Impossible d'extraire du texte (essayez un PDF/DOCX non scanné).");
+      setCv(text);
     }catch(e){ setErr(e.message || "Erreur d'extraction"); }
     finally{ setExtracting(false); }
   }
@@ -49,46 +111,54 @@ export default function Home(){
     finally{ setLoading(false); }
   }
 
-  async function exportPDF(){
+  // export “capture” (rapide)
+  async function exportCapture(){
     if(!resultRef.current) return;
     const canvas = await html2canvas(resultRef.current, { scale: 2, backgroundColor: "#ffffff" });
     const imgData = canvas.toDataURL("image/png");
-    // A4: 210 x 297 mm -> 595 x 842 pt
     const pdf = new jsPDF("p","pt","a4");
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const imgWidth = pageWidth - 40; // marges
-    const imgHeight = canvas.height * imgWidth / canvas.width;
-    let y = 20;
-    if(imgHeight < pageHeight) {
-      pdf.addImage(imgData, "PNG", 20, y, imgWidth, imgHeight);
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const imgW = pageW - 40, imgH = canvas.height * imgW / canvas.width;
+    if(imgH <= pageH - 40) {
+      pdf.addImage(imgData, "PNG", 20, 20, imgW, imgH);
     } else {
       // multi-pages
-      let sY = 0;
+      let y = 0;
+      const ratio = imgW / canvas.width;
       const pageCanvas = document.createElement("canvas");
-      const pageCtx = pageCanvas.getContext("2d");
-      const ratio = imgWidth / canvas.width;
       pageCanvas.width = canvas.width;
-      pageCanvas.height = Math.floor(pageHeight / ratio);
-      const pageHeightPx = pageCanvas.height;
-
-      while(sY < canvas.height){
-        pageCtx.clearRect(0,0,pageCanvas.width,pageCanvas.height);
-        pageCtx.drawImage(canvas, 0, sY, canvas.width, pageHeightPx, 0, 0, canvas.width, pageHeightPx);
-        const pageImg = pageCanvas.toDataURL("image/png");
-        pdf.addImage(pageImg, "PNG", 20, 20, imgWidth, pageHeight - 40);
-        sY += pageHeightPx;
-        if(sY < canvas.height) pdf.addPage();
+      pageCanvas.height = Math.floor((pageH - 40) / ratio);
+      const ctx = pageCanvas.getContext("2d");
+      while(y < canvas.height){
+        ctx.clearRect(0,0,pageCanvas.width,pageCanvas.height);
+        ctx.drawImage(canvas, 0, y, canvas.width, pageCanvas.height, 0, 0, canvas.width, pageCanvas.height);
+        pdf.addImage(pageCanvas.toDataURL("image/png"), "PNG", 20, 20, imgW, pageH - 40);
+        y += pageCanvas.height;
+        if(y < canvas.height) pdf.addPage();
       }
     }
-    pdf.save("candidature.pdf");
+    pdf.save("candidature_capture.pdf");
+  }
+
+  // export “propre” (mise en page)
+  async function exportPropre(){
+    if(!out) return;
+    const blob = await pdf(<DocPDF
+      cv={out.cvOptimise} lettre={out.lettre}
+      checklist={out.checklist} score={out.score}
+    />).toBlob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "candidature.pdf"; a.click();
+    URL.revokeObjectURL(url);
   }
 
   return (
     <main className="container">
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
         <h1>CV-IA — Générateur</h1>
-        <span className="badge">Upload + Export PDF</span>
+        <span className="badge">Upload + OCR + Export PDF</span>
       </div>
 
       <div className="grid">
@@ -96,7 +166,7 @@ export default function Home(){
           <label>Votre CV — importez un fichier ou collez le texte</label>
           <input type="file" accept=".pdf,.docx,.txt" onChange={onFile} />
           <small style={{color:"var(--muted)"}}>
-            {extracting ? "Extraction du texte..." : "Formats acceptés : PDF, DOCX, TXT"}
+            {extracting ? "Extraction/OCR en cours..." : "PDF, DOCX, TXT — OCR auto si scanné"}
           </small>
           <textarea value={cv} onChange={e=>setCv(e.target.value)}
             placeholder="Le texte extrait du CV s’affiche ici (ou collez-le manuellement)." />
@@ -113,7 +183,8 @@ export default function Home(){
         <button className="btn" onClick={generate} disabled={loading || !cv || !offre}>
           {loading ? "Génération en cours..." : "Générer CV + Lettre + Checklist"}
         </button>
-        <button className="btn" onClick={exportPDF} disabled={!out}>Exporter en PDF</button>
+        <button className="btn" onClick={exportPropre} disabled={!out}>Exporter PDF propre</button>
+        <button className="btn" onClick={exportCapture} disabled={!out}>Exporter PDF capture</button>
       </div>
 
       {err && <p style={{color:"#fca5a5",marginTop:8}}>❌ {err}</p>}
@@ -130,7 +201,7 @@ export default function Home(){
           </div>
           <div className="card" style={{gridColumn:"1 / -1"}}>
             <h2>Checklist d’entretien & Score</h2>
-            <pre>Score ATS estimé : {out.score}\n\n{out.checklist}</pre>
+            <pre>Score ATS estimé : {out.score}{"\n\n"}{out.checklist}</pre>
           </div>
         </section>
       )}
