@@ -1,9 +1,12 @@
 // pages/index.jsx
 import { useState } from "react";
-import {
-  pdf, Document, Page, Text, View, StyleSheet
-} from "@react-pdf/renderer";
-import CVProModern from "../components/pdf/CVProModern"; // adapte le chemin si besoin
+import { pdf, Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+
+// Templates PDF CV
+import CVProModern from "../components/pdf/CVProModern";
+import CVGoldHeader from "../components/pdf/CVGoldHeader";
+import CVDarkSidebar from "../components/pdf/CVDarkSidebar";
+import CVCleanPro from "../components/pdf/CVCleanPro";
 
 // --- Composant PDF pour la Lettre ---
 const letterStyles = StyleSheet.create({
@@ -19,10 +22,15 @@ function LetterPDF({ profile = {}, letter = "" }) {
       <Page size="A4" style={letterStyles.page}>
         <Text style={letterStyles.h1}>Lettre de motivation</Text>
         <Text style={letterStyles.meta}>
-          {profile.fullName || ""} • {profile.email || ""} • {profile.phone || ""} • {profile.location || ""}
+          {(profile.fullName || "") +
+            (profile.email ? ` • ${profile.email}` : "") +
+            (profile.phone ? ` • ${profile.phone}` : "") +
+            (profile.location ? ` • ${profile.location}` : "")}
         </Text>
         <Text style={letterStyles.body}>{letter}</Text>
-        <Text style={letterStyles.sign}>Cordialement,{`\n`}{profile.fullName || ""}</Text>
+        <Text style={letterStyles.sign}>
+          Cordialement,{`\n`}{profile.fullName || ""}
+        </Text>
       </Page>
     </Document>
   );
@@ -37,6 +45,9 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(null);
   const [extracting, setExtracting] = useState(false);
+
+  // ===== Choix du template =====
+  const [cvTemplate, setCvTemplate] = useState("dark"); // "modern" | "gold" | "dark" | "clean"
 
   // ===== États du formulaire minimal (si pas d'upload) =====
   const [cvName, setCvName] = useState("");
@@ -111,11 +122,11 @@ ${cvEdu || ""}
     finally{ setLoading(false); }
   }
 
-  // ===== Génération Lettre (auto, sans textarea) =====
+  // ===== Génération Lettre (auto) =====
   async function generateLetter(){
     setLoading(true); setErr(null); setOutLetter(null);
     try{
-      const baseText = buildBaseCVText();           // réutilise CV importé ou formulaire
+      const baseText = buildBaseCVText();
       if(!offre || !offre.trim()) throw new Error("Ajoutez d’abord le texte de l’offre.");
       const r = await fetch("/api/generate-json", {
         method:"POST",
@@ -124,27 +135,44 @@ ${cvEdu || ""}
       });
       const data = await r.json();
       if(!r.ok) throw new Error(data?.error || "Erreur serveur");
-      setOutLetter({ profile: data.profile, letter: data.letter }); // on garde la lettre et le profil
+      setOutLetter({ profile: data.profile, letter: data.letter });
     }catch(e){ setErr(e.message || "Erreur"); }
     finally{ setLoading(false); }
   }
 
-  // ===== Export PDF CV =====
+  // ===== Export PDF CV (avec choix du template) =====
   async function exportCVPro(){
     if(!outJSON) return;
-    const blob = await pdf(
-      <CVProModern
-        profile={outJSON.profile}
-        skills={outJSON.skills}
-        languages={outJSON.languages || []}
-        hobbies={outJSON.hobbies || []}
-        experiences={outJSON.experiences}
-        education={outJSON.education}
-      />
-    ).toBlob();
+
+    const props = {
+      profile: outJSON.profile,
+      skills: outJSON.skills || [],
+      languages: outJSON.languages || [],
+      hobbies: outJSON.hobbies || [],
+      experiences: outJSON.experiences || [],
+      education: outJSON.education || []
+    };
+
+    let Doc;
+    switch (cvTemplate) {
+      case "gold":
+        Doc = <CVGoldHeader {...props} />;
+        break;
+      case "clean":
+        Doc = <CVCleanPro {...props} />;
+        break;
+      case "modern":
+        Doc = <CVProModern {...props} />;
+        break;
+      case "dark":
+      default:
+        Doc = <CVDarkSidebar {...props} />;
+    }
+
+    const blob = await pdf(Doc).toBlob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = "CV_modern.pdf"; a.click();
+    a.href = url; a.download = `CV_${cvTemplate}.pdf`; a.click();
     URL.revokeObjectURL(url);
   }
 
@@ -174,14 +202,14 @@ ${cvEdu || ""}
           </div>
           <div className="hidden sm:flex gap-2 flex-wrap">
             <div className="bg-indigo-400/20 border border-indigo-400/40 text-indigo-100 px-3 py-1 rounded-lg text-sm">⚡ GPT</div>
-            <div className="bg-indigo-400/20 border border-indigo-400/40 text-indigo-100 px-3 py-1 rounded-lg text-sm">📄 PDF moderne</div>
+            <div className="bg-indigo-400/20 border border-indigo-400/40 text-indigo-100 px-3 py-1 rounded-lg text-sm">📄 PDF multi-templates</div>
             <div className="bg-indigo-400/20 border border-indigo-400/40 text-indigo-100 px-3 py-1 rounded-lg text-sm">🧠 JSON structuré</div>
           </div>
         </div>
 
         {/* --------- SECTION CV --------- */}
         <div className="grid md:grid-cols-2 gap-4">
-          {/* Upload CV (sans textarea) */}
+          {/* Upload CV */}
           <div className="border border-white/10 rounded-2xl shadow-soft bg-gradient-to-b from-card1 to-card2 p-5">
             <label className="block text-white/70 mb-2 font-medium">Votre CV — importez un fichier</label>
             <input className="mb-2" type="file" accept=".pdf,.docx,.txt" onChange={onFile} />
@@ -263,6 +291,7 @@ ${cvEdu || ""}
                       value={cvEdu} onChange={e=>setCvEdu(e.target.value)} placeholder="Ex: Master Info - Sorbonne - 2018" />
           </div>
 
+          {/* Actions CV */}
           <div className="flex gap-3 flex-wrap mt-4">
             <button
               className="inline-flex items-center justify-center rounded-xl px-4 py-3 text-white bg-gradient-to-br from-accent to-indigo-600 hover:brightness-110 disabled:opacity-60"
@@ -276,8 +305,29 @@ ${cvEdu || ""}
               onClick={exportCVPro}
               disabled={!outJSON}
             >
-              Exporter CV PDF (moderne)
+              Exporter CV PDF
             </button>
+          </div>
+
+          {/* Sélecteur de mise en page */}
+          <div className="flex items-center gap-2 flex-wrap mt-3">
+            <span className="text-sm text-white/70">Mise en page :</span>
+            <button
+              className={`px-3 py-1 rounded-lg border ${cvTemplate==="modern"?"bg-white/10 border-white":"border-white/20"}`}
+              onClick={()=>setCvTemplate("modern")}
+            >Modern</button>
+            <button
+              className={`px-3 py-1 rounded-lg border ${cvTemplate==="gold"?"bg-white/10 border-white":"border-white/20"}`}
+              onClick={()=>setCvTemplate("gold")}
+            >Gold Header</button>
+            <button
+              className={`px-3 py-1 rounded-lg border ${cvTemplate==="dark"?"bg-white/10 border-white":"border-white/20"}`}
+              onClick={()=>setCvTemplate("dark")}
+            >Dark Sidebar</button>
+            <button
+              className={`px-3 py-1 rounded-lg border ${cvTemplate==="clean"?"bg-white/10 border-white":"border-white/20"}`}
+              onClick={()=>setCvTemplate("clean")}
+            >Clean Pro</button>
           </div>
         </div>
 
@@ -288,45 +338,4 @@ ${cvEdu || ""}
             L’IA va générer la lettre automatiquement à partir de votre CV (upload ou formulaire) et de l’offre.
           </p>
 
-          <div className="flex gap-3 flex-wrap mt-4">
-            <button
-              className="inline-flex items-center justify-center rounded-xl px-4 py-3 text-white bg-gradient-to-br from-accent to-indigo-600 hover:brightness-110 disabled:opacity-60"
-              onClick={generateLetter}
-              disabled={loading || (!offre || (!cvText && !cvName && !cvTitle))}
-            >
-              {loading ? "Génération Lettre…" : "Générer la lettre automatiquement"}
-            </button>
-            <button
-              className="inline-flex items-center justify-center rounded-xl px-4 py-3 text-white bg-gradient-to-br from-pink-400 to-rose-600 hover:brightness-110 disabled:opacity-60"
-              onClick={exportLetterPDF}
-              disabled={!outLetter}
-            >
-              Exporter Lettre PDF
-            </button>
-          </div>
-        </div>
-
-        {/* Erreurs */}
-        {err && <div className="text-red-400 mt-3">❌ {err}</div>}
-
-        {/* Aperçus (debug) */}
-        {outJSON && (
-          <div className="border border-white/10 rounded-2xl shadow-soft bg-gradient-to-b from-card1 to-card2 p-5 mt-4">
-            <label className="block text-white/70 mb-2 font-medium">Données CV (aperçu)</label>
-            <pre className="whitespace-pre-wrap m-0 p-3 rounded-xl border border-white/10 bg-[#0e1426] text-[#e9ecf6]">
-{JSON.stringify(outJSON, null, 2)}
-            </pre>
-          </div>
-        )}
-        {outLetter && (
-          <div className="border border-white/10 rounded-2xl shadow-soft bg-gradient-to-b from-card1 to-card2 p-5 mt-4">
-            <label className="block text-white/70 mb-2 font-medium">Lettre générée (aperçu)</label>
-            <pre className="whitespace-pre-wrap m-0 p-3 rounded-xl border border-white/10 bg-[#0e1426] text-[#e9ecf6]">
-{outLetter.letter || ""}
-            </pre>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+          <d
