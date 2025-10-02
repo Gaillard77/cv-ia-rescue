@@ -1,7 +1,7 @@
-import { useState, useRef } from "react";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
-import { pdf, Document, Page, Text, StyleSheet } from "@react-pdf/renderer";
+import { pdf } from "@react-pdf/renderer";
+import CVPro from "../components/pdf/CVPro";
+import LetterPro from "../components/pdf/LetterPro";
+
 
 function toBase64(buf){
   let binary=""; const bytes=new Uint8Array(buf);
