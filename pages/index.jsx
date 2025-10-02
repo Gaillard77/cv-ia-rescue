@@ -131,12 +131,7 @@ ${cvEdu}
             <div className="text-white/70 text-sm mb-2">
               {extracting ? "Extraction en cours…" : "Formats acceptés : PDF, DOCX, TXT"}
             </div>
-            <textarea
-              className="w-full min-h-[220px] rounded-xl border border-white/15 bg-[#0f1526] text-white p-3"
-              value={cv}
-              onChange={e=>setCv(e.target.value)}
-              placeholder="Le texte extrait du CV s’affiche ici (ou collez-le manuellement)."
-            />
+         
           </div>
 
           <div className="border border-white/10 rounded-2xl shadow-soft bg-gradient-to-b from-card1 to-card2 p-5">
