@@ -1,73 +1,41 @@
-:root{
-  --bg:#0b0f19; --bg2:#0a0f1d; --card:#11182b; --card2:#0f1526;
-  --text:#e6e9ef; --muted:#a9b3c7; --line:#22314a;
-  --accent:#7c5cff; --accent2:#57d6b3; --danger:#ff6b6b;
-  --shadow: 0 10px 30px rgba(0,0,0,.25);
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-*{box-sizing:border-box}
-html,body{height:100%}
-body{
-  margin:0; background:linear-gradient(180deg,var(--bg),var(--bg2) 60%,#080c14);
-  color:var(--text); font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+/* Petites utilitaires globales (optionnelles) */
+.gradient-bg{
+  background: linear-gradient(180deg, theme('colors.bg1'), theme('colors.bg2') 60%, #080c14);
 }
-
-.container{width:min(1100px,92vw); margin:0 auto; padding:28px 0 56px}
-.header{
-  display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px;
-}
-.brand{
-  display:flex; align-items:center; gap:12px;
-}
-.logo{
-  width:40px; height:40px; border-radius:12px;
-  background:linear-gradient(135deg,var(--accent),#5a3cff); box-shadow:var(--shadow);
-}
-.title{margin:0; font-size:22px}
-.badge{font-size:12px; border:1px solid rgba(124,92,255,.35); background:rgba(124,92,255,.18); padding:4px 10px; border-radius:999px}
-
-.grid{display:grid; grid-template-columns:1fr 1fr; gap:16px}
-@media (max-width:920px){ .grid{ grid-template-columns:1fr } }
-
 .card{
-  border:1px solid rgba(255,255,255,.08); background:linear-gradient(180deg,var(--card),var(--card2));
-  border-radius:18px; padding:18px; box-shadow:var(--shadow);
+  @apply border border-white/10 rounded-2xl shadow-soft bg-gradient-to-b from-card1 to-card2 p-5;
 }
-
-label{display:block; margin:6px 0 10px; color:var(--muted); font-weight:500}
-textarea{
-  width:100%; min-height:220px; padding:12px; border-radius:14px;
-  border:1px solid rgba(255,255,255,.12); background:#0f1526; color:var(--text);
-}
-input[type=file]{display:block; margin:4px 0 10px}
-
-.toolbar{display:flex; gap:12px; flex-wrap:wrap; margin-top:14px}
 .btn{
-  padding:12px 16px; border-radius:12px; border:0; color:#fff; cursor:pointer; transition:transform .12s ease, opacity .2s;
+  @apply inline-flex items-center justify-center rounded-xl px-4 py-3 transition;
 }
-.btn:disabled{opacity:.6; cursor:not-allowed}
-.btn:hover{transform:translateY(-1px)}
-.btn-primary{background:linear-gradient(135deg,var(--accent),#5a3cff)}
-.btn-ghost{background:transparent; border:1px solid rgba(255,255,255,.18); color:var(--text)}
-.btn-ghost:hover{background:rgba(255,255,255,.06)}
-.btn-success{background:linear-gradient(135deg,var(--accent2),#3dbb97)}
-
-.kpis{display:flex; gap:12px; flex-wrap:wrap; margin-top:8px}
+.btn-primary{
+  @apply text-white bg-gradient-to-br from-accent to-indigo-600 hover:brightness-110 disabled:opacity-60;
+}
+.btn-success{
+  @apply text-white bg-gradient-to-br from-accent2 to-emerald-500 hover:brightness-110 disabled:opacity-60;
+}
+.btn-ghost{
+  @apply border border-white/15 text-white/90 hover:bg-white/5;
+}
+.badge{
+  @apply text-xs border border-accent/40 bg-accent/20 text-white px-2.5 py-1 rounded-full;
+}
 .kpi{
-  background:rgba(124,92,255,.14); border:1px solid rgba(124,92,255,.28);
-  padding:8px 12px; border-radius:10px; font-size:13px; color:#d8d5ff;
+  @apply bg-accent/20 border border-accent/40 text-indigo-100 px-3 py-1 rounded-lg text-sm;
 }
-
-.results{
-  display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:18px;
+.label{
+  @apply block text-white/70 mb-2 font-medium;
 }
-.results .full{grid-column:1 / -1}
-@media (max-width:920px){ .results{ grid-template-columns:1fr } }
-
+.input{
+  @apply w-full rounded-xl border border-white/15 bg-[#0f1526] text-white p-3;
+}
+.textarea{
+  @apply w-full min-h-[220px] rounded-xl border border-white/15 bg-[#0f1526] text-white p-3;
+}
 pre{
-  white-space:pre-wrap; margin:0; padding:12px; border-radius:12px;
-  background:#0e1426; border:1px solid rgba(255,255,255,.10); color:#e9ecf6;
+  @apply whitespace-pre-wrap m-0 p-3 rounded-xl border border-white/10 bg-[#0e1426] text-[#e9ecf6];
 }
-
-.note{color:var(--muted); font-size:13px; margin-top:6px}
-.error{color:va
