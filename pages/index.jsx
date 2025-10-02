@@ -1,102 +1,19 @@
-import { pdf } from "@react-pdf/renderer";
-import CVPro from "../components/pdf/CVPro";
-import LetterPro from "../components/pdf/LetterPro";
-
-
-function toBase64(buf){
-  let binary=""; const bytes=new Uint8Array(buf);
-  for(let i=0;i<bytes.byteLength;i++) binary+=String.fromCharCode(bytes[i]);
-  return typeof btoa!=="undefined" ? btoa(binary) : Buffer.from(binary,"binary").toString("base64");
-}
-
-// -------- OCR (PDF scannés) ----------
-async function ocrPdfFile(file, pagesMax = 3){
-  const pdfjs = await import("pdfjs-dist/build/pdf");
-  const workerSrc = await import("pdfjs-dist/build/pdf.worker.mjs"); // nécessaire pour Vercel
-  pdfjs.GlobalWorkerOptions.workerSrc = workerSrc;
-  const Tesseract = (await import("tesseract.js")).default;
-
-  const buf = await file.arrayBuffer();
-  const loadingTask = pdfjs.getDocument({ data: buf });
-  const pdf = await loadingTask.promise;
-
-  let text = "";
-  const pages = Math.min(pdf.numPages, pagesMax);
-  for(let i=1;i<=pages;i++){
-    const page = await pdf.getPage(i);
-    const viewport = page.getViewport({ scale: 2 }); // rendu HD
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
-    canvas.width = viewport.width; canvas.height = viewport.height;
-    await page.render({ canvasContext: ctx, viewport }).promise;
-
-    const { data: { text: pageText } } = await Tesseract.recognize(
-      canvas, "eng+fra", { logger: () => {} }
-    );
-    text += (pageText || "") + "\n";
-  }
-  return text.replace(/\r/g,"").trim();
-}
-
-// -------- PDF “propre” (mise en page) ----------
-const styles = StyleSheet.create({
-  page: { padding: 28, fontSize: 11, fontFamily: "Helvetica" },
-  h1: { fontSize: 18, marginBottom: 6, fontWeight: 700 },
-  h2: { fontSize: 14, marginTop: 10, marginBottom: 6, fontWeight: 700 },
-  mono: { fontSize: 11, lineHeight: 1.3 }
-});
-function DocPDF({ cv, lettre, checklist, score }){
-  return (
-    <Document>
-      <Page size="A4" style={styles.page}>
-        <Text style={styles.h1}>Candidature générée</Text>
-        <Text>Score ATS estimé : {String(score)}</Text>
-        <Text style={styles.h2}>CV optimisé</Text>
-        <Text style={styles.mono}>{cv}</Text>
-        <Text style={styles.h2}>Lettre de motivation</Text>
-        <Text style={styles.mono}>{lettre}</Text>
-        <Text style={styles.h2}>Checklist entretien</Text>
-        <Text style={styles.mono}>{checklist}</Text>
-      </Page>
-    </Document>
-  );
-}
+import { useState, useRef } from "react";
+import { pdf } from "@react-pdf/renderer";        // pour générer les PDFs pro
+import CVPro from "../components/pdf/CVPro";      // ton composant CV pro
+import LetterPro from "../components/pdf/LetterPro"; // ton composant Lettre pro
 
 export default function Home(){
-  const [cv, setCv] = useState("");
-  const [offre, setOffre] = useState("");
-  const [out, setOut] = useState(null);
+  // ====== États (variables qui font réagir la page) ======
+  const [cv, setCv] = useState("");         // texte du CV (collé ou extrait)
+  const [offre, setOffre] = useState("");   // texte de l’offre
+  const [out, setOut] = useState(null);     // résultat "texte" (ancienne API /api/generate)
+  const [outJSON, setOutJSON] = useState(null); // ✅ résultat "structuré" (nouvelle API /api/generate-json)
   const [loading, setLoading] = useState(false);
-  const [extracting, setExtracting] = useState(false);
   const [err, setErr] = useState(null);
-  const resultRef = useRef(null);
 
-  async function onFile(e){
-    const f = e.target.files?.[0]; if(!f) return;
-    setErr(null); setExtracting(true);
-    try{
-      // 1) essai extraction serveur (pdf-parse / mammoth / txt)
-      const r = await fetch("/api/extract", {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({ fileName: f.name, fileBase64: toBase64(await f.arrayBuffer()) })
-      });
-      let data = await r.json();
-      let text = r.ok ? (data.text || "") : "";
-
-      // 2) fallback OCR si extraction vide
-      if(!text){
-        const ocrText = await ocrPdfFile(f);
-        if(ocrText) text = ocrText;
-      }
-
-      if(!text) throw new Error("Impossible d'extraire du texte (essayez un PDF/DOCX non scanné).");
-      setCv(text);
-    }catch(e){ setErr(e.message || "Erreur d'extraction"); }
-    finally{ setExtracting(false); }
-  }
-
-  async function generate(){
+  // ====== Génération classique (texte) — optionnel, tu peux garder si tu veux ======
+  async function generateClassic(){
     setLoading(true); setErr(null); setOut(null);
     try{
       const r = await fetch("/api/generate", {
@@ -106,103 +23,114 @@ export default function Home(){
       });
       const data = await r.json();
       if(!r.ok) throw new Error(data?.error || "Erreur serveur");
-      setOut(data);
+      setOut(data);            // <- stocke le résultat texte
+      setOutJSON(null);        // on efface l’autre pour éviter toute confusion d’affichage
     }catch(e){ setErr(e.message || "Erreur"); }
     finally{ setLoading(false); }
   }
 
-  // export “capture” (rapide)
-  async function exportCapture(){
-    if(!resultRef.current) return;
-    const canvas = await html2canvas(resultRef.current, { scale: 2, backgroundColor: "#ffffff" });
-    const imgData = canvas.toDataURL("image/png");
-    const pdf = new jsPDF("p","pt","a4");
-    const pageW = pdf.internal.pageSize.getWidth();
-    const pageH = pdf.internal.pageSize.getHeight();
-    const imgW = pageW - 40, imgH = canvas.height * imgW / canvas.width;
-    if(imgH <= pageH - 40) {
-      pdf.addImage(imgData, "PNG", 20, 20, imgW, imgH);
-    } else {
-      // multi-pages
-      let y = 0;
-      const ratio = imgW / canvas.width;
-      const pageCanvas = document.createElement("canvas");
-      pageCanvas.width = canvas.width;
-      pageCanvas.height = Math.floor((pageH - 40) / ratio);
-      const ctx = pageCanvas.getContext("2d");
-      while(y < canvas.height){
-        ctx.clearRect(0,0,pageCanvas.width,pageCanvas.height);
-        ctx.drawImage(canvas, 0, y, canvas.width, pageCanvas.height, 0, 0, canvas.width, pageCanvas.height);
-        pdf.addImage(pageCanvas.toDataURL("image/png"), "PNG", 20, 20, imgW, pageH - 40);
-        y += pageCanvas.height;
-        if(y < canvas.height) pdf.addPage();
-      }
-    }
-    pdf.save("candidature_capture.pdf");
+  // ====== ✅ Génération PRO (JSON structuré) ======
+  async function generatePro(){
+    setLoading(true); setErr(null); setOutJSON(null);
+    try{
+      // On envoie CV + Offre à l'API structurée
+      const r = await fetch("/api/generate-json", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ cvText: cv, jobText: offre })
+      });
+      const data = await r.json();          // <- on récupère l'objet JSON (profile, skills, experiences, education, letter, checklist, score)
+      if(!r.ok) throw new Error(data?.error || "Erreur serveur");
+      setOutJSON(data);                     // ✅ on stocke le JSON dans l’état
+      setOut(null);                         // on efface l’ancien résultat texte
+    }catch(e){ setErr(e.message || "Erreur"); }
+    finally{ setLoading(false); }
   }
 
-  // export “propre” (mise en page)
-  async function exportPropre(){
-    if(!out) return;
-    const blob = await pdf(<DocPDF
-      cv={out.cvOptimise} lettre={out.lettre}
-      checklist={out.checklist} score={out.score}
-    />).toBlob();
+  // ====== Export PDF PRO (mise en page) – CV ======
+  async function exportCVPro(){
+    if(!outJSON) return;
+    const blob = await pdf(
+      <CVPro
+        profile={outJSON.profile}
+        skills={outJSON.skills}
+        experiences={outJSON.experiences}
+        education={outJSON.education}
+      />
+    ).toBlob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = "candidature.pdf"; a.click();
+    a.href = url; a.download = "CV_pro.pdf"; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // ====== Export PDF PRO (mise en page) – Lettre ======
+  async function exportLetterPro(){
+    if(!outJSON) return;
+    const blob = await pdf(
+      <LetterPro
+        profile={outJSON.profile}
+        letter={outJSON.letter}
+      />
+    ).toBlob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "Lettre_pro.pdf"; a.click();
     URL.revokeObjectURL(url);
   }
 
   return (
-    <main className="container">
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-        <h1>CV-IA — Générateur</h1>
-        <span className="badge">Upload + OCR + Export PDF</span>
-      </div>
+    <main style={{fontFamily:"system-ui", padding:20, maxWidth:980, margin:"0 auto"}}>
+      <h1>CV-IA — Générateur</h1>
+      <p>Colle ton CV et l’offre, puis utilise la génération **classique** (texte) ou **PRO** (JSON structuré pour PDF).</p>
 
-      <div className="grid">
-        <div className="card">
-          <label>Votre CV — importez un fichier ou collez le texte</label>
-          <input type="file" accept=".pdf,.docx,.txt" onChange={onFile} />
-          <small style={{color:"var(--muted)"}}>
-            {extracting ? "Extraction/OCR en cours..." : "PDF, DOCX, TXT — OCR auto si scanné"}
-          </small>
-          <textarea value={cv} onChange={e=>setCv(e.target.value)}
-            placeholder="Le texte extrait du CV s’affiche ici (ou collez-le manuellement)." />
+      {/* Entrées */}
+      <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:12}}>
+        <div>
+          <label>CV (texte)</label>
+          <textarea rows={12} value={cv} onChange={e=>setCv(e.target.value)} style={{width:"100%"}} />
         </div>
-
-        <div className="card">
-          <label>Offre d’emploi (texte)</label>
-          <textarea value={offre} onChange={e=>setOffre(e.target.value)}
-            placeholder="Collez ici la description du poste..." />
+        <div>
+          <label>Offre (texte)</label>
+          <textarea rows={12} value={offre} onChange={e=>setOffre(e.target.value)} style={{width:"100%"}} />
         </div>
       </div>
 
-      <div className="toolbar">
-        <button className="btn" onClick={generate} disabled={loading || !cv || !offre}>
-          {loading ? "Génération en cours..." : "Générer CV + Lettre + Checklist"}
+      {/* Actions */}
+      <div style={{display:"flex", gap:10, flexWrap:"wrap", marginTop:12}}>
+        <button onClick={generateClassic} disabled={!cv || !offre || loading}>
+          {loading ? "Génération..." : "Générer (classique texte)"}
         </button>
-        <button className="btn" onClick={exportPropre} disabled={!out}>Exporter PDF propre</button>
-        <button className="btn" onClick={exportCapture} disabled={!out}>Exporter PDF capture</button>
+
+        <button onClick={generatePro} disabled={!cv || !offre || loading}>
+          {loading ? "Génération..." : "Générer (JSON structuré)"}
+        </button>
+
+        {/* Exports PRO activés seulement si outJSON existe */}
+        <button onClick={exportCVPro} disabled={!outJSON}>Exporter CV PDF pro</button>
+        <button onClick={exportLetterPro} disabled={!outJSON}>Exporter Lettre PDF pro</button>
       </div>
 
-      {err && <p style={{color:"#fca5a5",marginTop:8}}>❌ {err}</p>}
+      {/* Erreur */}
+      {err && <p style={{color:"crimson", marginTop:8}}>❌ {err}</p>}
 
+      {/* Affichage du résultat classique (texte brut) */}
       {out && (
-        <section className="grid" style={{marginTop:16}} ref={resultRef}>
-          <div className="card">
-            <h2>CV optimisé</h2>
-            <pre>{out.cvOptimise}</pre>
-          </div>
-          <div className="card">
-            <h2>Lettre de motivation</h2>
-            <pre>{out.lettre}</pre>
-          </div>
-          <div className="card" style={{gridColumn:"1 / -1"}}>
-            <h2>Checklist d’entretien & Score</h2>
-            <pre>Score ATS estimé : {out.score}{"\n\n"}{out.checklist}</pre>
-          </div>
+        <section style={{marginTop:16}}>
+          <h2>Résultat (classique / texte)</h2>
+          <h3>CV optimisé</h3><pre>{out.cvOptimise}</pre>
+          <h3>Lettre</h3><pre>{out.lettre}</pre>
+          <h3>Checklist</h3><pre>{out.checklist}</pre>
+          <h3>Score</h3><pre>{out.score}</pre>
+        </section>
+      )}
+
+      {/* Affichage du JSON (pour vérifier la structure) */}
+      {outJSON && (
+        <section style={{marginTop:16}}>
+          <h2>Résultat PRO (JSON structuré)</h2>
+          <pre style={{whiteSpace:"pre-wrap"}}>{JSON.stringify(outJSON, null, 2)}</pre>
+          <p style={{opacity:.7}}>Tu peux maintenant exporter en PDF pro (CV / Lettre) avec les boutons ci-dessus.</p>
         </section>
       )}
     </main>
