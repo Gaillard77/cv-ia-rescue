@@ -8,6 +8,14 @@ import CVGoldHeader from "../components/pdf/CVGoldHeader";
 import CVDarkSidebar from "../components/pdf/CVDarkSidebar";
 import CVCleanPro from "../components/pdf/CVCleanPro";
 
+// Fallbacks intégrés (prévisualisations sans /public/)
+const PREVIEW_SVGS = {
+  modern: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='120'><rect width='100%' height='100%' fill='white'/><text x='10' y='60' font-size='20' fill='black'>Modern</text></svg>",
+  gold: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='120'><rect width='100%' height='100%' fill='gold'/><text x='10' y='60' font-size='20' fill='black'>Gold</text></svg>",
+  dark: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='120'><rect width='100%' height='100%' fill='black'/><text x='10' y='60' font-size='20' fill='white'>Dark</text></svg>",
+  clean: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='120'><rect width='100%' height='100%' fill='lightgray'/><text x='10' y='60' font-size='20' fill='black'>Clean</text></svg>"
+};
+
 /* =========================
    VIGNETTES INTÉGRÉES (fallback)
    ========================= */
