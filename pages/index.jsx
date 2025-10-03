@@ -1,6 +1,6 @@
 // pages/index.jsx
 import { useState } from "react";
-import { pdf, Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import { pdf, Document, Page, Text, StyleSheet } from "@react-pdf/renderer";
 
 // Templates PDF CV
 import CVProModern from "../components/pdf/CVProModern";
@@ -8,7 +8,67 @@ import CVGoldHeader from "../components/pdf/CVGoldHeader";
 import CVDarkSidebar from "../components/pdf/CVDarkSidebar";
 import CVCleanPro from "../components/pdf/CVCleanPro";
 
-// --- Composant PDF pour la Lettre ---
+/* =========================
+   VIGNETTES INTÉGRÉES (fallback)
+   ========================= */
+const PREVIEW_SVGS = {
+  modern: `data:image/svg+xml;utf8,${encodeURIComponent(`
+    <svg xmlns='http://www.w3.org/2000/svg' width='600' height='800'>
+      <rect width='100%' height='100%' fill='#ffffff'/>
+      <rect x='0' y='0' width='600' height='120' fill='#eef2ff'/>
+      <text x='30' y='60' font-size='42' fill='#1f2937' font-family='Arial'>Jean Dupont</text>
+      <text x='30' y='100' font-size='24' fill='#374151' font-family='Arial'>Développeur Full-Stack</text>
+      <line x1='300' y1='130' x2='300' y2='760' stroke='#e5e7eb' stroke-width='3'/>
+      <text x='30' y='170' font-size='24' fill='#111827' font-family='Arial'>COMPÉTENCES</text>
+      <text x='30' y='205' font-size='18' fill='#374151' font-family='Arial'>• React • Node.js • SQL • Docker • AWS</text>
+      <text x='330' y='170' font-size='24' fill='#111827' font-family='Arial'>EXPÉRIENCES</text>
+      <text x='330' y='205' font-size='18' fill='#374151' font-family='Arial'>TechCorp (2022–2024) • StartApp (2019–2022)</text>
+    </svg>
+  `)}`,
+  gold: `data:image/svg+xml;utf8,${encodeURIComponent(`
+    <svg xmlns='http://www.w3.org/2000/svg' width='600' height='800'>
+      <rect width='100%' height='100%' fill='#ffffff'/>
+      <rect x='0' y='0' width='600' height='140' fill='#c8a75a'/>
+      <circle cx='80' cy='70' r='50' fill='#f3f4f6' stroke='#b58943' stroke-width='4'/>
+      <text x='170' y='60' font-size='42' fill='#1f2937' font-family='Arial'>Jean Dupont</text>
+      <text x='170' y='100' font-size='24' fill='#1f2937' font-family='Arial'>Product Manager</text>
+      <text x='30' y='190' font-size='24' fill='#111827' font-family='Arial'>OBJECTIFS</text>
+      <text x='30' y='225' font-size='18' fill='#374151' font-family='Arial'>Stratégie produit orientée KPI & impact.</text>
+      <text x='330' y='190' font-size='24' fill='#111827' font-family='Arial'>EXPÉRIENCES</text>
+      <text x='330' y='225' font-size='18' fill='#374151' font-family='Arial'>FinTech (2021–2024) • Lancements majeurs</text>
+    </svg>
+  `)}`,
+  dark: `data:image/svg+xml;utf8,${encodeURIComponent(`
+    <svg xmlns='http://www.w3.org/2000/svg' width='600' height='800'>
+      <rect width='100%' height='100%' fill='#ffffff'/>
+      <rect x='0' y='0' width='200' height='800' fill='#1f2937'/>
+      <circle cx='100' cy='100' r='60' fill='#0f172a'/>
+      <text x='30' y='190' font-size='20' fill='#e5e7eb' font-family='Arial'>Jean Dupont</text>
+      <text x='30' y='215' font-size='16' fill='#c7d2fe' font-family='Arial'>Data Analyst</text>
+      <line x1='20' y1='235' x2='180' y2='235' stroke='#374151' stroke-width='2'/>
+      <text x='220' y='60' font-size='24' fill='#111827' font-family='Arial'>PROFIL</text>
+      <text x='220' y='90' font-size='18' fill='#374151' font-family='Arial'>Dashboards, AB tests, SQL/Python.</text>
+      <text x='220' y='140' font-size='24' fill='#111827' font-family='Arial'>EXPÉRIENCES</text>
+      <text x='220' y='170' font-size='18' fill='#374151' font-family='Arial'>RetailCo (2022–2024) • Segmentation clients</text>
+    </svg>
+  `)}`,
+  clean: `data:image/svg+xml;utf8,${encodeURIComponent(`
+    <svg xmlns='http://www.w3.org/2000/svg' width='600' height='800'>
+      <rect width='100%' height='100%' fill='#ffffff'/>
+      <line x1='30' y1='70' x2='570' y2='70' stroke='#111111' stroke-width='3'/>
+      <text x='30' y='45' font-size='42' fill='#111111' font-family='Arial'>JEAN DUPONT</text>
+      <text x='360' y='45' font-size='24' fill='#111111' font-family='Arial'>Développeur</text>
+      <text x='30' y='120' font-size='24' fill='#111111' font-family='Arial'>PROFIL</text>
+      <text x='30' y='150' font-size='18' fill='#000000' font-family='Arial'>Code propre, tests, performance.</text>
+      <text x='340' y='120' font-size='24' fill='#111111' font-family='Arial'>COMPÉTENCES</text>
+      <text x='340' y='150' font-size='18' fill='#000000' font-family='Arial'>JS • TS • React • Node • SQL</text>
+    </svg>
+  `)}`
+};
+
+/* =========================
+   COMPOSANT LETTRE PDF
+   ========================= */
 const letterStyles = StyleSheet.create({
   page: { padding: 28, fontFamily: "Helvetica" },
   h1: { fontSize: 16, fontWeight: 700, marginBottom: 10, color: "#0e1a2b" },
@@ -36,6 +96,22 @@ function LetterPDF({ profile = {}, letter = "" }) {
   );
 }
 
+/* =========================
+   HELPERS
+   ========================= */
+async function fetchJSON(url, options){
+  const r = await fetch(url, options);
+  const ct = r.headers.get("content-type") || "";
+  if (ct.includes("application/json")) {
+    const data = await r.json();
+    if(!r.ok) throw new Error(data?.error || `Erreur HTTP ${r.status}`);
+    return data;
+  } else {
+    const txt = await r.text(); // souvent HTML (404/500)
+    throw new Error(`Réponse non-JSON (${r.status}). Détail: ${txt.slice(0,200)}...`);
+  }
+}
+
 export default function Home() {
   // ===== États principaux =====
   const [cvText, setCvText] = useState("");        // texte CV extrait (upload)
@@ -61,7 +137,7 @@ export default function Home() {
   const [cvEdu, setCvEdu] = useState("");
 
   // ===== Photo : URL + FICHIER LOCAL (dataURL) =====
-  const [photoUrl, setPhotoUrl] = useState("");        // URL (optionnel)
+  const [photoUrl, setPhotoUrl] = useState("");         // URL (optionnel)
   const [photoDataUrl, setPhotoDataUrl] = useState(""); // IMPORT local (data:image/...)
 
   // ===== Utils upload + extract (CV fichier) =====
@@ -75,13 +151,11 @@ export default function Home() {
     setErr(null); setExtracting(true);
     try{
       const buf = await f.arrayBuffer();
-      const r = await fetch("/api/extract", {
+      const data = await fetchJSON("/api/extract", {
         method:"POST",
         headers:{ "Content-Type":"application/json" },
         body: JSON.stringify({ fileName: f.name, fileBase64: toBase64(buf) })
       });
-      const data = await r.json();
-      if(!r.ok) throw new Error(data?.error || "Extraction échouée");
       setCvText(data.text);
     }catch(e){ setErr(e.message || "Erreur d'extraction"); }
     finally{ setExtracting(false); }
@@ -124,13 +198,11 @@ ${cvEdu || ""}
     try{
       const baseText = buildBaseCVText();
       if(!offre || !offre.trim()) throw new Error("Ajoutez d’abord le texte de l’offre.");
-      const r = await fetch("/api/generate-json", {
+      const data = await fetchJSON("/api/generate-json", {
         method:"POST",
         headers:{ "Content-Type":"application/json" },
         body: JSON.stringify({ cvText: baseText, jobText: offre })
       });
-      const data = await r.json();
-      if(!r.ok) throw new Error(data?.error || "Erreur serveur");
       setOutJSON(data);
     }catch(e){ setErr(e.message || "Erreur"); }
     finally{ setLoading(false); }
@@ -142,13 +214,11 @@ ${cvEdu || ""}
     try{
       const baseText = buildBaseCVText();
       if(!offre || !offre.trim()) throw new Error("Ajoutez d’abord le texte de l’offre.");
-      const r = await fetch("/api/generate-json", {
+      const data = await fetchJSON("/api/generate-json", {
         method:"POST",
         headers:{ "Content-Type":"application/json" },
         body: JSON.stringify({ cvText: baseText, jobText: offre })
       });
-      const data = await r.json();
-      if(!r.ok) throw new Error(data?.error || "Erreur serveur");
       setOutLetter({ profile: data.profile, letter: data.letter });
     }catch(e){ setErr(e.message || "Erreur"); }
     finally{ setLoading(false); }
@@ -215,8 +285,9 @@ ${cvEdu || ""}
     URL.revokeObjectURL(url);
   }
 
-  // ===== Carte Template (vignette) =====
+  // ===== Carte Template (vignette avec fallback) =====
   function TemplateCard({ id, title, img, selected, onClick }){
+    const fallback = PREVIEW_SVGS[id] || PREVIEW_SVGS.modern;
     return (
       <button
         onClick={onClick}
@@ -224,13 +295,13 @@ ${cvEdu || ""}
         title={title}
       >
         <div className="w-[180px] h-[120px] bg-white/5 flex items-center justify-center">
-          {/* image d’aperçu si dispo dans public/templates/ */}
-          {img ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={img} alt={title} className="w-full h-full object-cover" />
-          ) : (
-            <div className="text-white/50 text-sm">Aperçu</div>
-          )}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={img || fallback}
+            alt={title}
+            className="w-full h-full object-cover"
+            onError={(e)=>{ e.currentTarget.src = fallback; }}
+          />
         </div>
         <div className="absolute bottom-0 left-0 right-0 bg-black/50 px-2 py-1 text-xs">
           {title}
@@ -426,7 +497,7 @@ ${cvEdu || ""}
               />
             </div>
             <div className="text-white/50 text-xs mt-2">
-              Place des images d’aperçu dans <code>public/templates/</code> (modern.jpg, gold.jpg, dark.jpg, clean.jpg).
+              Astuce : si les images /templates/*.jpg n’existent pas, un aperçu intégré s’affiche automatiquement.
             </div>
           </div>
         </div>
