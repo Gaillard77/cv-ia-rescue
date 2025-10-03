@@ -49,7 +49,7 @@ export default function Home() {
   // ===== Choix du template =====
   const [cvTemplate, setCvTemplate] = useState("dark"); // "modern" | "gold" | "dark" | "clean"
 
-  // ===== États du formulaire minimal (si pas d'upload) =====
+  // ===== États du formulaire minimal =====
   const [cvName, setCvName] = useState("");
   const [cvTitle, setCvTitle] = useState("");
   const [cvEmail, setCvEmail] = useState("");
@@ -59,9 +59,12 @@ export default function Home() {
   const [cvSkills, setCvSkills] = useState("");
   const [cvExp, setCvExp] = useState("");
   const [cvEdu, setCvEdu] = useState("");
-  const [photoUrl, setPhotoUrl] = useState(""); // <-- NOUVEAU : URL Photo
 
-  // ===== Utils upload + extract =====
+  // ===== Photo : URL + FICHIER LOCAL (dataURL) =====
+  const [photoUrl, setPhotoUrl] = useState("");        // URL (optionnel)
+  const [photoDataUrl, setPhotoDataUrl] = useState(""); // IMPORT local (data:image/...)
+
+  // ===== Utils upload + extract (CV fichier) =====
   function toBase64(buf){
     let binary=""; const bytes=new Uint8Array(buf);
     for(let i=0;i<bytes.byteLength;i++) binary+=String.fromCharCode(bytes[i]);
@@ -82,6 +85,16 @@ export default function Home() {
       setCvText(data.text);
     }catch(e){ setErr(e.message || "Erreur d'extraction"); }
     finally{ setExtracting(false); }
+  }
+
+  // ===== Import photo locale → DataURL (affichée + intégrée au PDF) =====
+  function onPhotoFile(e){
+    const f = e.target.files?.[0]; if(!f) return;
+    if(!/^image\/(png|jpe?g)$/i.test(f.type)) { setErr("Photo: format accepté JPG/PNG"); return; }
+    const reader = new FileReader();
+    reader.onload = () => setPhotoDataUrl(reader.result); // data:image/...
+    reader.onerror = () => setErr("Impossible de lire la photo.");
+    reader.readAsDataURL(f);
   }
 
   // ===== Construit automatiquement un "texte CV de base" =====
@@ -145,10 +158,13 @@ ${cvEdu || ""}
   async function exportCVPro(){
     if(!outJSON) return;
 
-    // on fusionne la photo entrée manuellement avec le profil généré
+    // photo prioritaire = import local (dataURL), sinon URL manuelle
+    const effectivePhoto = (photoDataUrl && photoDataUrl.startsWith("data:image")) ? photoDataUrl :
+                           (photoUrl?.trim() ? photoUrl.trim() : "");
+
     const profile = {
       ...(outJSON.profile || {}),
-      ...(photoUrl?.trim() ? { photoUrl: photoUrl.trim() } : {})
+      ...(effectivePhoto ? { photoUrl: effectivePhoto } : {})
     };
 
     const props = {
@@ -186,16 +202,42 @@ ${cvEdu || ""}
   // ===== Export PDF Lettre =====
   async function exportLetterPDF(){
     if(!outLetter) return;
-    // idem : si tu as renseigné la photo, on l’ajoute aussi à la lettre
+    const effectivePhoto = (photoDataUrl && photoDataUrl.startsWith("data:image")) ? photoDataUrl :
+                           (photoUrl?.trim() ? photoUrl.trim() : "");
     const profile = {
       ...(outLetter.profile || {}),
-      ...(photoUrl?.trim() ? { photoUrl: photoUrl.trim() } : {})
+      ...(effectivePhoto ? { photoUrl: effectivePhoto } : {})
     };
     const blob = await pdf(<LetterPDF profile={profile} letter={outLetter.letter} />).toBlob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url; a.download = "Lettre_de_motivation.pdf"; a.click();
     URL.revokeObjectURL(url);
+  }
+
+  // ===== Carte Template (vignette) =====
+  function TemplateCard({ id, title, img, selected, onClick }){
+    return (
+      <button
+        onClick={onClick}
+        className={`group relative overflow-hidden rounded-xl border ${selected ? "border-white" : "border-white/20"} hover:border-white/60 transition`}
+        title={title}
+      >
+        <div className="w-[180px] h-[120px] bg-white/5 flex items-center justify-center">
+          {/* image d’aperçu si dispo dans public/templates/ */}
+          {img ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={img} alt={title} className="w-full h-full object-cover" />
+          ) : (
+            <div className="text-white/50 text-sm">Aperçu</div>
+          )}
+        </div>
+        <div className="absolute bottom-0 left-0 right-0 bg-black/50 px-2 py-1 text-xs">
+          {title}
+        </div>
+        {selected && <div className="absolute inset-0 ring-2 ring-white/80 pointer-events-none rounded-xl" />}
+      </button>
+    );
   }
 
   return (
@@ -208,13 +250,13 @@ ${cvEdu || ""}
             <div>
               <h1 className="text-2xl m-0">CV-IA</h1>
               <div className="text-xs border border-indigo-400/40 bg-indigo-400/20 px-2.5 py-1 rounded-full">
-                Upload + Formulaire + IA + PDF pro
+                Upload + Formulaire + IA + PDF multi-templates
               </div>
             </div>
           </div>
           <div className="hidden sm:flex gap-2 flex-wrap">
             <div className="bg-indigo-400/20 border border-indigo-400/40 text-indigo-100 px-3 py-1 rounded-lg text-sm">⚡ GPT</div>
-            <div className="bg-indigo-400/20 border border-indigo-400/40 text-indigo-100 px-3 py-1 rounded-lg text-sm">📄 PDF multi-templates</div>
+            <div className="bg-indigo-400/20 border border-indigo-400/40 text-indigo-100 px-3 py-1 rounded-lg text-sm">📄 Templates PDF</div>
             <div className="bg-indigo-400/20 border border-indigo-400/40 text-indigo-100 px-3 py-1 rounded-lg text-sm">🧠 JSON structuré</div>
           </div>
         </div>
@@ -279,17 +321,36 @@ ${cvEdu || ""}
                    value={cvLocation} onChange={e=>setCvLocation(e.target.value)} placeholder="Paris, France" />
           </div>
 
-          {/* NOUVEAU : URL photo */}
-          <div className="mt-4">
-            <label className="block text-white/70 mb-2 font-medium">URL photo (optionnel)</label>
-            <input
-              className="w-full rounded-xl border border-white/15 bg-[#0f1526] text-white p-3"
-              value={photoUrl}
-              onChange={e=>setPhotoUrl(e.target.value)}
-              placeholder="https://exemple.com/ma-photo.jpg"
-            />
-            <div className="text-white/60 text-xs mt-1">
-              Utilisez un lien public (400×400px recommandé). La photo apparaît dans certains templates.
+          {/* Photo : URL + Upload local avec aperçu */}
+          <div className="mt-4 grid md:grid-cols-[1fr,auto] items-start gap-4">
+            <div>
+              <label className="block text-white/70 mb-2 font-medium">URL photo (optionnel)</label>
+              <input
+                className="w-full rounded-xl border border-white/15 bg-[#0f1526] text-white p-3"
+                value={photoUrl}
+                onChange={e=>setPhotoUrl(e.target.value)}
+                placeholder="https://exemple.com/ma-photo.jpg"
+              />
+              <div className="text-white/60 text-xs mt-1">
+                Ou importez un fichier (JPG/PNG) — l’image sera intégrée au PDF.
+              </div>
+
+              <div className="mt-2">
+                <input type="file" accept="image/png,image/jpeg" onChange={onPhotoFile} />
+              </div>
+            </div>
+
+            {/* Aperçu photo */}
+            <div className="flex items-center justify-center">
+              <div className="w-24 h-24 rounded-full overflow-hidden border border-white/20 bg-white/10">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  alt="aperçu photo"
+                  src={photoDataUrl || photoUrl || ""}
+                  className="w-full h-full object-cover"
+                  onError={(e)=>{ e.currentTarget.src=""; }}
+                />
+              </div>
             </div>
           </div>
 
@@ -335,25 +396,38 @@ ${cvEdu || ""}
             </button>
           </div>
 
-          {/* Sélecteur de mise en page */}
-          <div className="flex items-center gap-2 flex-wrap mt-3">
-            <span className="text-sm text-white/70">Mise en page :</span>
-            <button
-              className={`px-3 py-1 rounded-lg border ${cvTemplate==="modern"?"bg-white/10 border-white":"border-white/20"}`}
-              onClick={()=>setCvTemplate("modern")}
-            >Modern</button>
-            <button
-              className={`px-3 py-1 rounded-lg border ${cvTemplate==="gold"?"bg-white/10 border-white":"border-white/20"}`}
-              onClick={()=>setCvTemplate("gold")}
-            >Gold Header</button>
-            <button
-              className={`px-3 py-1 rounded-lg border ${cvTemplate==="dark"?"bg-white/10 border-white":"border-white/20"}`}
-              onClick={()=>setCvTemplate("dark")}
-            >Dark Sidebar</button>
-            <button
-              className={`px-3 py-1 rounded-lg border ${cvTemplate==="clean"?"bg-white/10 border-white":"border-white/20"}`}
-              onClick={()=>setCvTemplate("clean")}
-            >Clean Pro</button>
+          {/* Sélecteur visuel de mise en page */}
+          <div className="mt-4">
+            <div className="text-sm text-white/70 mb-2">Mise en page :</div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <TemplateCard
+                id="modern" title="Modern"
+                img="/templates/modern.jpg"
+                selected={cvTemplate==="modern"}
+                onClick={()=>setCvTemplate("modern")}
+              />
+              <TemplateCard
+                id="gold" title="Gold Header"
+                img="/templates/gold.jpg"
+                selected={cvTemplate==="gold"}
+                onClick={()=>setCvTemplate("gold")}
+              />
+              <TemplateCard
+                id="dark" title="Dark Sidebar"
+                img="/templates/dark.jpg"
+                selected={cvTemplate==="dark"}
+                onClick={()=>setCvTemplate("dark")}
+              />
+              <TemplateCard
+                id="clean" title="Clean Pro"
+                img="/templates/clean.jpg"
+                selected={cvTemplate==="clean"}
+                onClick={()=>setCvTemplate("clean")}
+              />
+            </div>
+            <div className="text-white/50 text-xs mt-2">
+              Place des images d’aperçu dans <code>public/templates/</code> (modern.jpg, gold.jpg, dark.jpg, clean.jpg).
+            </div>
           </div>
         </div>
 
