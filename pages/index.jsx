@@ -292,32 +292,32 @@ ${cvEdu || ""}
     a.href = url; a.download = "Lettre_de_motivation.pdf"; a.click();
     URL.revokeObjectURL(url);
   }
+function TemplateCard({ id, title, img, selected, onClick }){
+  const fallback = PREVIEW_SVGS[id]; // prend le SVG si l’image n’existe pas
+  return (
+    <button
+      onClick={onClick}
+      className={`group relative overflow-hidden rounded-xl border ${selected ? "border-white" : "border-white/20"} hover:border-white/60 transition`}
+      title={title}
+    >
+      <div className="w-[180px] h-[120px] bg-white/5 flex items-center justify-center">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={img || fallback}
+          alt={title}
+          className="w-full h-full object-cover"
+          onError={(e)=>{ e.currentTarget.src = fallback; }}
+        />
+      </div>
+      <div className="absolute bottom-0 left-0 right-0 bg-black/50 px-2 py-1 text-xs">
+        {title}
+      </div>
+      {selected && <div className="absolute inset-0 ring-2 ring-white/80 pointer-events-none rounded-xl" />}
+    </button>
+  );
+}
 
-  // ===== Carte Template (vignette avec fallback) =====
-  function TemplateCard({ id, title, img, selected, onClick }){
-    const fallback = PREVIEW_SVGS[id] || PREVIEW_SVGS.modern;
-    return (
-      <button
-        onClick={onClick}
-        className={`group relative overflow-hidden rounded-xl border ${selected ? "border-white" : "border-white/20"} hover:border-white/60 transition`}
-        title={title}
-      >
-        <div className="w-[180px] h-[120px] bg-white/5 flex items-center justify-center">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={img || fallback}
-            alt={title}
-            className="w-full h-full object-cover"
-            onError={(e)=>{ e.currentTarget.src = fallback; }}
-          />
-        </div>
-        <div className="absolute bottom-0 left-0 right-0 bg-black/50 px-2 py-1 text-xs">
-          {title}
-        </div>
-        {selected && <div className="absolute inset-0 ring-2 ring-white/80 pointer-events-none rounded-xl" />}
-      </button>
-    );
-  }
+ 
 
   return (
     <div className="min-h-screen text-white bg-gradient-to-b from-bg1 to-bg2">
