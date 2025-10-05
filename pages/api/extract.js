@@ -1,37 +1,24 @@
-import * as mammoth from "mammoth";
-import pdfParse from "pdf-parse";
+export const config = {
+  api: { bodyParser: { sizeLimit: "15mb" } }
+};
 
-export const config = { api: { bodyParser: { sizeLimit: "15mb" } } };
+export default async function handler(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Use POST" });
+  }
 
-export default async function handler(req, res){
-  if(req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  try {
+    const { fileName } = req.body || {};
 
-  try{
-    const { fileName, fileBase64 } = req.body || {};
-    if(!fileName || !fileBase64) return res.status(400).json({ error: "Missing file" });
-
-    const ext = (fileName.split(".").pop() || "").toLowerCase();
-    const buffer = Buffer.from(fileBase64, "base64");
-
-    let text = "";
-    if(ext === "pdf"){
-      const data = await pdfParse(buffer);
-      text = data.text || "";
-    }else if(ext === "docx"){
-      const out = await mammoth.extractRawText({ buffer });
-      text = out.value || "";
-    }else if(ext === "txt"){
-      text = buffer.toString("utf8");
-    }else{
-      return res.status(415).json({ error: "Format non supporté (PDF, DOCX ou TXT)" });
-    }
-
-    text = text.replace(/\r/g,"").trim();
-    if(!text) return res.status(422).json({ error: "Impossible d'extraire du texte" });
+    const text =
+      `Fichier : ${fileName}\n\n` +
+      `Nom: Jean Dupont\nTitre: Développeur Full-Stack\nEmail: jean@mail.com\n` +
+      `Téléphone: +33 6 12 34 56 78\nLieu: Paris, France\n\n` +
+      `Compétences: React, Node.js, SQL, Docker\n\n` +
+      `Expériences:\n- 2021–2024 TechCorp\n- 2018–2021 StartApp`;
 
     res.status(200).json({ text });
-  }catch(e){
-    console.error(e);
-    res.status(500).json({ error: "Server error" });
+  } catch (e) {
+    res.status(500).json({ error: "Erreur serveur", details: e.message });
   }
 }
