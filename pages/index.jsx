@@ -107,17 +107,17 @@ async function fetchJSON(url, options){
     if(!r.ok) throw new Error(data?.error || `Erreur HTTP ${r.status}`);
     return data;
   } else {
-    const txt = await r.text(); // souvent HTML (404/500)
+    const txt = await r.text();
     throw new Error(`Réponse non-JSON (${r.status}). Détail: ${txt.slice(0,200)}...`);
   }
 }
 
 export default function Home() {
   // ===== États principaux =====
-  const [cvText, setCvText] = useState("");        // texte CV extrait (upload)
-  const [offre, setOffre] = useState("");          // texte de l'offre
-  const [outJSON, setOutJSON] = useState(null);    // résultat structuré pour le CV
-  const [outLetter, setOutLetter] = useState(null);// profil + lettre générée
+  const [cvText, setCvText] = useState("");
+  const [offre, setOffre] = useState("");
+  const [outJSON, setOutJSON] = useState(null);
+  const [outLetter, setOutLetter] = useState(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(null);
   const [extracting, setExtracting] = useState(false);
@@ -136,11 +136,11 @@ export default function Home() {
   const [cvExp, setCvExp] = useState("");
   const [cvEdu, setCvEdu] = useState("");
 
-  // ===== Photo : URL + FICHIER LOCAL (dataURL) =====
-  const [photoUrl, setPhotoUrl] = useState("");         // URL (optionnel)
-  const [photoDataUrl, setPhotoDataUrl] = useState(""); // IMPORT local (data:image/...)
+  // ===== Photo =====
+  const [photoUrl, setPhotoUrl] = useState("");
+  const [photoDataUrl, setPhotoDataUrl] = useState("");
 
-  // ===== Utils upload + extract (CV fichier) =====
+  // ===== Upload + extraction (CV fichier) =====
   function toBase64(buf){
     let binary=""; const bytes=new Uint8Array(buf);
     for(let i=0;i<bytes.byteLength;i++) binary+=String.fromCharCode(bytes[i]);
@@ -161,17 +161,17 @@ export default function Home() {
     finally{ setExtracting(false); }
   }
 
-  // ===== Import photo locale → DataURL (affichée + intégrée au PDF) =====
+  // ===== Import photo locale → DataURL =====
   function onPhotoFile(e){
     const f = e.target.files?.[0]; if(!f) return;
     if(!/^image\/(png|jpe?g)$/i.test(f.type)) { setErr("Photo: format accepté JPG/PNG"); return; }
     const reader = new FileReader();
-    reader.onload = () => setPhotoDataUrl(reader.result); // data:image/...
+    reader.onload = () => setPhotoDataUrl(reader.result);
     reader.onerror = () => setErr("Impossible de lire la photo.");
     reader.readAsDataURL(f);
   }
 
-  // ===== Construit automatiquement un "texte CV de base" =====
+  // ===== Construit un "texte CV de base" =====
   function buildBaseCVText(){
     if (cvText && cvText.trim()) return cvText.trim();
     return `
@@ -192,7 +192,7 @@ ${cvEdu || ""}
 `.trim();
   }
 
-  // ===== Génération CV (JSON) =====
+  // ===== Génération CV (JSON via API) =====
   async function generateCV(){
     setLoading(true); setErr(null); setOutJSON(null);
     try{
@@ -208,7 +208,7 @@ ${cvEdu || ""}
     finally{ setLoading(false); }
   }
 
-  // ===== Génération Lettre (auto) =====
+  // ===== Génération Lettre (auto via API) =====
   async function generateLetter(){
     setLoading(true); setErr(null); setOutLetter(null);
     try{
@@ -224,11 +224,10 @@ ${cvEdu || ""}
     finally{ setLoading(false); }
   }
 
-  // ===== Export PDF CV (avec choix du template) =====
+  // ===== Export PDF CV =====
   async function exportCVPro(){
     if(!outJSON) return;
 
-    // photo prioritaire = import local (dataURL), sinon URL manuelle
     const effectivePhoto = (photoDataUrl && photoDataUrl.startsWith("data:image")) ? photoDataUrl :
                            (photoUrl?.trim() ? photoUrl.trim() : "");
 
@@ -248,18 +247,11 @@ ${cvEdu || ""}
 
     let Doc;
     switch (cvTemplate) {
-      case "gold":
-        Doc = <CVGoldHeader {...props} />;
-        break;
-      case "clean":
-        Doc = <CVCleanPro {...props} />;
-        break;
-      case "modern":
-        Doc = <CVProModern {...props} />;
-        break;
+      case "gold":  Doc = <CVGoldHeader {...props} />; break;
+      case "clean": Doc = <CVCleanPro   {...props} />; break;
+      case "modern":Doc = <CVProModern  {...props} />; break;
       case "dark":
-      default:
-        Doc = <CVDarkSidebar {...props} />;
+      default:       Doc = <CVDarkSidebar {...props} />;
     }
 
     const blob = await pdf(Doc).toBlob();
@@ -285,9 +277,9 @@ ${cvEdu || ""}
     URL.revokeObjectURL(url);
   }
 
-  // ===== Carte Template (vignette avec fallback) =====
-  function TemplateCard({ id, title, img, selected, onClick }){
-    const fallback = PREVIEW_SVGS[id] || PREVIEW_SVGS.modern;
+  // ===== Carte Template (vignette 100% intégrée) =====
+  function TemplateCard({ id, title, selected, onClick }){
+    const src = PREVIEW_SVGS[id] || PREVIEW_SVGS.modern; // toujours une image
     return (
       <button
         onClick={onClick}
@@ -296,12 +288,7 @@ ${cvEdu || ""}
       >
         <div className="w-[180px] h-[120px] bg-white/5 flex items-center justify-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={img || fallback}
-            alt={title}
-            className="w-full h-full object-cover"
-            onError={(e)=>{ e.currentTarget.src = fallback; }}
-          />
+          <img src={src} alt={title} className="w-full h-full object-cover" />
         </div>
         <div className="absolute bottom-0 left-0 right-0 bg-black/50 px-2 py-1 text-xs">
           {title}
@@ -471,33 +458,13 @@ ${cvEdu || ""}
           <div className="mt-4">
             <div className="text-sm text-white/70 mb-2">Mise en page :</div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <TemplateCard
-                id="modern" title="Modern"
-                img="/templates/modern.jpg"
-                selected={cvTemplate==="modern"}
-                onClick={()=>setCvTemplate("modern")}
-              />
-              <TemplateCard
-                id="gold" title="Gold Header"
-                img="/templates/gold.jpg"
-                selected={cvTemplate==="gold"}
-                onClick={()=>setCvTemplate("gold")}
-              />
-              <TemplateCard
-                id="dark" title="Dark Sidebar"
-                img="/templates/dark.jpg"
-                selected={cvTemplate==="dark"}
-                onClick={()=>setCvTemplate("dark")}
-              />
-              <TemplateCard
-                id="clean" title="Clean Pro"
-                img="/templates/clean.jpg"
-                selected={cvTemplate==="clean"}
-                onClick={()=>setCvTemplate("clean")}
-              />
+              <TemplateCard id="modern" title="Modern"       selected={cvTemplate==="modern"} onClick={()=>setCvTemplate("modern")} />
+              <TemplateCard id="gold"   title="Gold Header"  selected={cvTemplate==="gold"}   onClick={()=>setCvTemplate("gold")} />
+              <TemplateCard id="dark"   title="Dark Sidebar" selected={cvTemplate==="dark"}   onClick={()=>setCvTemplate("dark")} />
+              <TemplateCard id="clean"  title="Clean Pro"    selected={cvTemplate==="clean"}  onClick={()=>setCvTemplate("clean")} />
             </div>
             <div className="text-white/50 text-xs mt-2">
-              Astuce : si les images /templates/*.jpg n’existent pas, un aperçu intégré s’affiche automatiquement.
+              Les vignettes sont intégrées : pas besoin d’images dans /public/.
             </div>
           </div>
         </div>
