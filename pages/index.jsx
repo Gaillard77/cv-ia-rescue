@@ -9,59 +9,43 @@ import CVDarkSidebar from "../components/pdf/CVDarkSidebar";
 import CVCleanPro from "../components/pdf/CVCleanPro";
 
 /* =========================
-   VIGNETTES INTÉGRÉES (fallback)
+   VIGNETTES INTÉGRÉES (aucun fichier public requis)
    ========================= */
 const PREVIEW_SVGS = {
   modern: `data:image/svg+xml;utf8,${encodeURIComponent(`
-    <svg xmlns='http://www.w3.org/2000/svg' width='600' height='800'>
-      <rect width='100%' height='100%' fill='#ffffff'/>
-      <rect x='0' y='0' width='600' height='120' fill='#eef2ff'/>
-      <text x='30' y='60' font-size='42' fill='#1f2937' font-family='Arial'>Jean Dupont</text>
-      <text x='30' y='100' font-size='24' fill='#374151' font-family='Arial'>Développeur Full-Stack</text>
-      <line x1='300' y1='130' x2='300' y2='760' stroke='#e5e7eb' stroke-width='3'/>
-      <text x='30' y='170' font-size='24' fill='#111827' font-family='Arial'>COMPÉTENCES</text>
-      <text x='30' y='205' font-size='18' fill='#374151' font-family='Arial'>• React • Node.js • SQL • Docker • AWS</text>
-      <text x='330' y='170' font-size='24' fill='#111827' font-family='Arial'>EXPÉRIENCES</text>
-      <text x='330' y='205' font-size='18' fill='#374151' font-family='Arial'>TechCorp (2022–2024) • StartApp (2019–2022)</text>
+    <svg xmlns='http://www.w3.org/2000/svg' width='180' height='120'>
+      <rect width='100%' height='100%' fill='#fff'/>
+      <rect x='0' y='0' width='180' height='30' fill='#eef2ff'/>
+      <text x='10' y='20' font-size='14' fill='#1f2937' font-family='Arial'>Modern</text>
+      <line x1='90' y1='30' x2='90' y2='110' stroke='#e5e7eb' stroke-width='2'/>
+      <text x='10' y='55' font-size='10' fill='#374151' font-family='Arial'>• React • Node • SQL</text>
+      <text x='100' y='55' font-size='10' fill='#374151' font-family='Arial'>TechCorp • StartApp</text>
     </svg>
   `)}`,
   gold: `data:image/svg+xml;utf8,${encodeURIComponent(`
-    <svg xmlns='http://www.w3.org/2000/svg' width='600' height='800'>
-      <rect width='100%' height='100%' fill='#ffffff'/>
-      <rect x='0' y='0' width='600' height='140' fill='#c8a75a'/>
-      <circle cx='80' cy='70' r='50' fill='#f3f4f6' stroke='#b58943' stroke-width='4'/>
-      <text x='170' y='60' font-size='42' fill='#1f2937' font-family='Arial'>Jean Dupont</text>
-      <text x='170' y='100' font-size='24' fill='#1f2937' font-family='Arial'>Product Manager</text>
-      <text x='30' y='190' font-size='24' fill='#111827' font-family='Arial'>OBJECTIFS</text>
-      <text x='30' y='225' font-size='18' fill='#374151' font-family='Arial'>Stratégie produit orientée KPI & impact.</text>
-      <text x='330' y='190' font-size='24' fill='#111827' font-family='Arial'>EXPÉRIENCES</text>
-      <text x='330' y='225' font-size='18' fill='#374151' font-family='Arial'>FinTech (2021–2024) • Lancements majeurs</text>
+    <svg xmlns='http://www.w3.org/2000/svg' width='180' height='120'>
+      <rect width='100%' height='100%' fill='#fff'/>
+      <rect x='0' y='0' width='180' height='35' fill='#c8a75a'/>
+      <circle cx='20' cy='18' r='12' fill='#f3f4f6' stroke='#b58943' stroke-width='2'/>
+      <text x='40' y='22' font-size='14' fill='#1f2937' font-family='Arial'>Gold Header</text>
+      <text x='10' y='60' font-size='10' fill='#374151' font-family='Arial'>Objectifs / Expériences</text>
     </svg>
   `)}`,
   dark: `data:image/svg+xml;utf8,${encodeURIComponent(`
-    <svg xmlns='http://www.w3.org/2000/svg' width='600' height='800'>
-      <rect width='100%' height='100%' fill='#ffffff'/>
-      <rect x='0' y='0' width='200' height='800' fill='#1f2937'/>
-      <circle cx='100' cy='100' r='60' fill='#0f172a'/>
-      <text x='30' y='190' font-size='20' fill='#e5e7eb' font-family='Arial'>Jean Dupont</text>
-      <text x='30' y='215' font-size='16' fill='#c7d2fe' font-family='Arial'>Data Analyst</text>
-      <line x1='20' y1='235' x2='180' y2='235' stroke='#374151' stroke-width='2'/>
-      <text x='220' y='60' font-size='24' fill='#111827' font-family='Arial'>PROFIL</text>
-      <text x='220' y='90' font-size='18' fill='#374151' font-family='Arial'>Dashboards, AB tests, SQL/Python.</text>
-      <text x='220' y='140' font-size='24' fill='#111827' font-family='Arial'>EXPÉRIENCES</text>
-      <text x='220' y='170' font-size='18' fill='#374151' font-family='Arial'>RetailCo (2022–2024) • Segmentation clients</text>
+    <svg xmlns='http://www.w3.org/2000/svg' width='180' height='120'>
+      <rect width='100%' height='100%' fill='#fff'/>
+      <rect x='0' y='0' width='50' height='120' fill='#1f2937'/>
+      <text x='8' y='18' font-size='9' fill='#c7d2fe' font-family='Arial'>Dark</text>
+      <text x='60' y='22' font-size='12' fill='#111827' font-family='Arial'>Sidebar</text>
+      <text x='60' y='46' font-size='10' fill='#374151' font-family='Arial'>Profil / XP</text>
     </svg>
   `)}`,
   clean: `data:image/svg+xml;utf8,${encodeURIComponent(`
-    <svg xmlns='http://www.w3.org/2000/svg' width='600' height='800'>
-      <rect width='100%' height='100%' fill='#ffffff'/>
-      <line x1='30' y1='70' x2='570' y2='70' stroke='#111111' stroke-width='3'/>
-      <text x='30' y='45' font-size='42' fill='#111111' font-family='Arial'>JEAN DUPONT</text>
-      <text x='360' y='45' font-size='24' fill='#111111' font-family='Arial'>Développeur</text>
-      <text x='30' y='120' font-size='24' fill='#111111' font-family='Arial'>PROFIL</text>
-      <text x='30' y='150' font-size='18' fill='#000000' font-family='Arial'>Code propre, tests, performance.</text>
-      <text x='340' y='120' font-size='24' fill='#111111' font-family='Arial'>COMPÉTENCES</text>
-      <text x='340' y='150' font-size='18' fill='#000000' font-family='Arial'>JS • TS • React • Node • SQL</text>
+    <svg xmlns='http://www.w3.org/2000/svg' width='180' height='120'>
+      <rect width='100%' height='100%' fill='#fff'/>
+      <line x1='10' y1='20' x2='170' y2='20' stroke='#111' stroke-width='2'/>
+      <text x='10' y='16' font-size='14' fill='#111' font-family='Arial'>Clean Pro</text>
+      <text x='10' y='50' font-size='10' fill='#000' font-family='Arial'>Profil / Compétences</text>
     </svg>
   `)}`
 };
@@ -277,9 +261,9 @@ ${cvEdu || ""}
     URL.revokeObjectURL(url);
   }
 
-  // ===== Carte Template (vignette 100% intégrée) =====
+  // ===== Carte Template (vignette intégrée : plus d'img externe) =====
   function TemplateCard({ id, title, selected, onClick }){
-    const src = PREVIEW_SVGS[id] || PREVIEW_SVGS.modern; // toujours une image
+    const src = PREVIEW_SVGS[id] || PREVIEW_SVGS.modern;
     return (
       <button
         onClick={onClick}
@@ -464,7 +448,7 @@ ${cvEdu || ""}
               <TemplateCard id="clean"  title="Clean Pro"    selected={cvTemplate==="clean"}  onClick={()=>setCvTemplate("clean")} />
             </div>
             <div className="text-white/50 text-xs mt-2">
-              Les vignettes sont intégrées : pas besoin d’images dans /public/.
+              Vignettes intégrées : aucun fichier /public/templates requis.
             </div>
           </div>
         </div>
