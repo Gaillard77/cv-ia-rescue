@@ -8,6 +8,16 @@ import CVGoldHeader from "../components/pdf/CVGoldHeader";
 import CVDarkSidebar from "../components/pdf/CVDarkSidebar";
 import CVCleanPro from "../components/pdf/CVCleanPro";
 
+// en haut des imports :
+import LetterCascade from "../components/pdf/letters/LetterCascade";
+import LetterPostal from "../components/pdf/letters/LetterPostal";
+import LetterNanica from "../components/pdf/letters/LetterNanica";
+import LetterConcept from "../components/pdf/letters/LetterConcept";
+
+// ...
+const [letterTemplate, setLetterTemplate] = useState("nanica"); // "cascade" | "postal" | "nanica" | "concept"
+
+
 /* =========================
    COMPOSANT LETTRE PDF
    ========================= */
