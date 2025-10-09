@@ -91,6 +91,7 @@ export default function Home() {
 
   // ===== Consignes IA =====
   const [aiNote, setAiNote] = useState("");
+  const [tone, setTone] = useState("professionnel"); // 👈 nouveau sélecteur de ton
 
   /* ========== Fichiers Upload / Extraction ========== */
   function toBase64(buf){
@@ -241,6 +242,7 @@ ${cvEdu || ""}
         cvText: baseText,
         jobText: offre || "",
         instructions: aiNote,
+        tone, // 👈 ton ajouté
         currentJSON: outJSON || null,
         mode: "cv"
       };
@@ -261,6 +263,7 @@ ${cvEdu || ""}
     try{
       const body = {
         instructions: aiNote,
+        tone, // 👈 ton ajouté
         currentLetter: outLetter.letter,
         currentProfile: outLetter.profile || null,
         jobText: offre || "",
@@ -302,101 +305,51 @@ ${cvEdu || ""}
   return (
     <div className="min-h-screen text-white bg-gradient-to-b from-bg1 to-bg2">
       <div className="max-w-[1100px] w-[92vw] mx-auto py-8">
-        {/* --- HEADER --- */}
-        <div className="flex items-center justify-between gap-4 mb-5">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl shadow-soft bg-gradient-to-br from-accent to-indigo-600" />
-            <div>
-              <h1 className="text-2xl m-0">CV-IA</h1>
-              <div className="text-xs border border-indigo-400/40 bg-indigo-400/20 px-2.5 py-1 rounded-full">
-                Upload + Formulaire + IA + PDF multi-templates
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* --- UPLOAD & OFFRE --- */}
-        <div className="grid md:grid-cols-2 gap-4">
-          <div className="border border-white/10 rounded-2xl bg-gradient-to-b from-card1 to-card2 p-5">
-            <label className="block text-white/70 mb-2 font-medium">Votre CV</label>
-            <input type="file" accept=".pdf,.docx,.txt" onChange={onFile} />
-            <div className="text-white/70 text-sm mt-2">
-              {extracting ? "Extraction en cours…" : "Formats acceptés : PDF, DOCX, TXT"}
-            </div>
-          </div>
-
-          <div className="border border-white/10 rounded-2xl bg-gradient-to-b from-card1 to-card2 p-5">
-            <label className="block text-white/70 mb-2 font-medium">Offre d’emploi</label>
-            <textarea
-              className="w-full min-h-[160px] rounded-xl border border-white/15 bg-[#0f1526] text-white p-3"
-              value={offre}
-              onChange={e=>setOffre(e.target.value)}
-              placeholder="Collez ici la description du poste."
-            />
-          </div>
-        </div>
-
-        {/* --- FORMULAIRE CV --- */}
-        {/* ... (formulaire identique à la version précédente) ... */}
-
-        {/* --- LETTRE --- */}
-        <div className="border border-white/10 rounded-2xl bg-gradient-to-b from-card1 to-card2 p-5 mt-6">
-          <h2 className="text-xl font-semibold mb-2">Lettre de motivation</h2>
-          <p className="text-white/70 text-sm">
-            Générée automatiquement à partir de votre CV et de l’offre.
-          </p>
-
-          <div className="flex gap-3 flex-wrap mt-4">
-            <button
-              className="px-4 py-3 rounded-xl bg-gradient-to-br from-accent to-indigo-600"
-              onClick={generateLetter}
-              disabled={loading || (!offre || (!cvText && !cvName && !cvTitle))}
-            >
-              {loading ? "Génération…" : "Générer la lettre"}
-            </button>
-            <button
-              className="px-4 py-3 rounded-xl bg-gradient-to-br from-pink-400 to-rose-600"
-              onClick={exportLetterPDF}
-              disabled={!outLetter}
-            >
-              Exporter Lettre PDF
-            </button>
-          </div>
-
-          {/* Sélecteur de mise en page */}
-          <div className="mt-4">
-            <div className="text-sm text-white/70 mb-2">Mise en page :</div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <TemplateCard title="Cascade"   selected={letterTemplate==="cascade"} onClick={()=>setLetterTemplate("cascade")} />
-              <TemplateCard title="Postal"    selected={letterTemplate==="postal"}  onClick={()=>setLetterTemplate("postal")} />
-              <TemplateCard title="Classique" selected={letterTemplate==="nanica"}  onClick={()=>setLetterTemplate("nanica")} />
-              <TemplateCard title="Concept"   selected={letterTemplate==="concept"} onClick={()=>setLetterTemplate("concept")} />
-            </div>
-          </div>
-        </div>
+        <h1 className="text-2xl font-bold mb-4">CV-IA</h1>
 
         {/* --- IA : amélioration libre --- */}
         <div className="border border-white/10 rounded-2xl bg-gradient-to-b from-card1 to-card2 p-5 mt-6">
           <h2 className="text-xl font-semibold mb-2">Parler à l’IA (améliorer CV ou lettre)</h2>
           <p className="text-white/70 text-sm mb-2">
-            Exemples : “rends le résumé plus percutant”, “ajoute Angular dans les compétences”, “raccourcis la lettre à 2 paragraphes”...
+            Donne des consignes à l’IA : « rends le résumé plus percutant », « ajoute Angular », « raccourcis la lettre », etc.
           </p>
+
+          {/* Sélecteur de ton */}
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            <span className="text-white/70 text-sm">Ton souhaité :</span>
+            {["professionnel", "convaincant", "créatif", "académique", "concis"].map((t) => (
+              <button
+                key={t}
+                onClick={() => setTone(t)}
+                className={`px-3 py-1.5 text-sm rounded-full border transition ${
+                  tone === t
+                    ? "bg-indigo-600 border-indigo-400"
+                    : "border-white/30 hover:border-indigo-300"
+                }`}
+              >
+                {t.charAt(0).toUpperCase() + t.slice(1)}
+              </button>
+            ))}
+          </div>
+
+          {/* Zone de saisie */}
           <textarea
             className="w-full min-h-[100px] rounded-xl border border-white/15 bg-[#0f1526] text-white p-3"
             value={aiNote}
             onChange={e=>setAiNote(e.target.value)}
             placeholder="Ta consigne ici..."
           />
+
           <div className="flex gap-3 flex-wrap mt-3">
             <button
-              className="px-4 py-3 rounded-xl bg-gradient-to-br from-indigo-400 to-indigo-600"
+              className="px-4 py-3 rounded-xl bg-gradient-to-br from-indigo-400 to-indigo-600 hover:brightness-110 disabled:opacity-60"
               onClick={improveCV}
               disabled={loading || (!outJSON && !cvText && !cvName && !cvTitle)}
             >
               Appliquer au CV
             </button>
             <button
-              className="px-4 py-3 rounded-xl bg-gradient-to-br from-rose-400 to-rose-600"
+              className="px-4 py-3 rounded-xl bg-gradient-to-br from-rose-400 to-rose-600 hover:brightness-110 disabled:opacity-60"
               onClick={improveLetter}
               disabled={loading || !outLetter}
             >
