@@ -3,206 +3,61 @@ import Link from "next/link";
 
 export default function HomeLanding() {
   return (
-    <>
-      <main className="container">
-        <section className="hero">
-          <div>
-            <div className="pill">Nouveau — Optimisé ATS</div>
-            <h1>
-              Boostez vos candidatures en{" "}
-              <span className="accent2">30 secondes</span>
-            </h1>
-            <p className="muted">
-              Importez votre CV, collez l&apos;offre d&apos;emploi et obtenez
-              un CV optimisé ATS, une lettre et une checklist d&apos;entretien.
-            </p>
+    <div className="min-h-screen bg-gradient-to-b from-bg1 to-bg2 text-white flex flex-col justify-center items-center px-6">
+      {/* Conteneur principal */}
+      <div className="max-w-3xl text-center space-y-6">
+        {/* Logo / titre */}
+        <div className="flex flex-col items-center gap-2">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-accent to-indigo-600 shadow-lg" />
+          <h1 className="text-4xl font-bold">Bienvenue sur CV-IA</h1>
+          <p className="text-white/70 max-w-lg">
+            Génère ton CV et ta lettre de motivation avec l’IA — optimisés pour les recruteurs et exportables en PDF multi-templates.
+          </p>
+        </div>
 
-            {/* Boutons d'action */}
-            <div className="ctaRow">
-              {/* Lien vers TON APP (désormais /app) */}
-              <Link href="/app" className="btn primary">
-                Démarrer gratuitement
-              </Link>
+        {/* Boutons */}
+        <div className="flex flex-wrap justify-center gap-4 pt-4">
+          <Link
+            href="/app"
+            className="px-6 py-3 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 hover:brightness-110 font-semibold shadow-soft"
+          >
+            🚀 Démarrer gratuitement
+          </Link>
+          <a
+            href="https://forms.gle/tonLienGoogleForm"
+            target="_blank"
+            rel="noopener"
+            className="px-6 py-3 rounded-xl border border-white/20 hover:border-indigo-400/50 font-semibold"
+          >
+            📝 Rejoindre la liste d’attente
+          </a>
+        </div>
 
-              {/* Lien vers Google Form (ouvre un nouvel onglet) */}
-              <a
-                className="btn outline"
-                href="LINK_GOOGLE_FORM"
-                target="_blank"
-                rel="noopener"
-              >
-                Rejoindre la liste d’attente
-              </a>
-            </div>
-
-            <p className="note">
-              Astuce : si tu veux une inscription intégrée, utilise aussi
-              l&apos;iframe à droite.
-            </p>
+        {/* Avantages */}
+        <div className="grid sm:grid-cols-2 gap-4 mt-10 text-left">
+          <div className="border border-white/10 rounded-2xl bg-gradient-to-b from-card1 to-card2 p-5">
+            <h3 className="font-semibold text-lg mb-2">⚡ Génération instantanée</h3>
+            <p className="text-white/70 text-sm">Colle ton offre d’emploi et reçois un CV structuré et une lettre personnalisée.</p>
           </div>
-
-          <div>
-            <div className="card">
-              <h3>Inscription intégrée (iframe)</h3>
-              {/* Remplacez l’URL par le code d’intégration Forms (menu « Envoyer » > onglet <> ) */}
-              <iframe
-                src="LINK_GOOGLE_FORM_EMBED"
-                title="Inscription"
-              >
-                Chargement du formulaire…
-              </iframe>
-              <p className="note">
-                Dans Google Forms : Envoyer → onglet &lt;&gt; → copiez l&apos;URL
-                d&apos;intégration, collez-la ici.
-              </p>
-            </div>
+          <div className="border border-white/10 rounded-2xl bg-gradient-to-b from-card1 to-card2 p-5">
+            <h3 className="font-semibold text-lg mb-2">📄 PDF multi-templates</h3>
+            <p className="text-white/70 text-sm">Choisis entre plusieurs styles modernes et exporte ton CV ou ta lettre en un clic.</p>
           </div>
-        </section>
-
-        {/* Bandeau de confiance (facultatif) */}
-        <section className="trust">
-          <div className="trustCard">
-            <h4>Pourquoi CV-IA ?</h4>
-            <ul>
-              <li>⚡ Génération en quelques secondes</li>
-              <li>✅ Optimisé ATS (mots-clés, structure)</li>
-              <li>🧠 Lettre de motivation cohérente et concise</li>
-              <li>📄 Export PDF multi-templates</li>
-            </ul>
-            <Link href="/app" className="btn slim">
-              Essayer maintenant →
-            </Link>
+          <div className="border border-white/10 rounded-2xl bg-gradient-to-b from-card1 to-card2 p-5">
+            <h3 className="font-semibold text-lg mb-2">🧠 IA personnalisée</h3>
+            <p className="text-white/70 text-sm">Améliore ton contenu avec des consignes précises : ton professionnel, créatif, etc.</p>
           </div>
-        </section>
-      </main>
+          <div className="border border-white/10 rounded-2xl bg-gradient-to-b from-card1 to-card2 p-5">
+            <h3 className="font-semibold text-lg mb-2">💼 Prêt pour le recrutement</h3>
+            <p className="text-white/70 text-sm">Optimisé ATS : structure claire, mots-clés, et compatibilité avec les plateformes RH.</p>
+          </div>
+        </div>
 
-      {/* Styles (inspirés de ton index (4).html) */}
-      <style jsx>{`
-        :root {
-          --bg: #0b0f19;
-          --card: #121829;
-          --muted: #9aa5b1;
-          --text: #e6e9ef;
-          --accent: #7c5cff;
-          --accent2: #4dd4ac;
-          --border: rgba(255, 255, 255, 0.08);
-        }
-        :global(html, body) {
-          margin: 0;
-          height: 100%;
-          background: linear-gradient(180deg, #0b0f19, #0a0d15 60%, #080b12);
-          color: var(--text);
-          font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
-            sans-serif;
-        }
-        .container {
-          width: min(1000px, 92vw);
-          margin: 0 auto;
-          padding: 40px 0 64px;
-        }
-        .hero {
-          display: grid;
-          grid-template-columns: 1.2fr 0.8fr;
-          gap: 28px;
-          align-items: center;
-        }
-        @media (max-width: 900px) {
-          .hero {
-            grid-template-columns: 1fr;
-          }
-        }
-        h1 {
-          font-size: clamp(28px, 4.2vw, 56px);
-          line-height: 1.05;
-          margin: 12px 0 10px;
-        }
-        .accent2 {
-          color: var(--accent2);
-        }
-        .muted {
-          color: var(--muted);
-        }
-        .pill {
-          display: inline-block;
-          padding: 6px 10px;
-          border: 1px solid rgba(124, 92, 255, 0.35);
-          border-radius: 999px;
-          background: rgba(124, 92, 255, 0.14);
-          font-size: 13px;
-        }
-        .ctaRow {
-          display: flex;
-          gap: 10px;
-          flex-wrap: wrap;
-          margin: 14px 0 6px;
-        }
-        .btn {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          padding: 12px 16px;
-          border-radius: 12px;
-          text-decoration: none;
-          font-weight: 700;
-          border: 1px solid transparent;
-        }
-        .btn.primary {
-          background: linear-gradient(135deg, var(--accent), #5a3cff);
-          color: white;
-        }
-        .btn.outline {
-          border-color: rgba(255, 255, 255, 0.18);
-          background: transparent;
-          color: var(--text);
-        }
-        .btn.slim {
-          padding: 10px 14px;
-          border-radius: 10px;
-          border: 1px solid var(--border);
-          background: rgba(124, 92, 255, 0.12);
-          color: white;
-          font-weight: 600;
-        }
-        .card {
-          background: linear-gradient(180deg, #121829, #0f1526);
-          border: 1px solid var(--border);
-          border-radius: 20px;
-          padding: 18px;
-        }
-        .card h3 {
-          margin: 0 0 8px;
-        }
-        iframe {
-          width: 100%;
-          height: 520px;
-          border: 0;
-          border-radius: 10px;
-          background: #0f1526;
-        }
-        .note {
-          margin-top: 10px;
-          color: var(--muted);
-          font-size: 14px;
-        }
-        .trust {
-          margin-top: 32px;
-        }
-        .trustCard {
-          background: linear-gradient(180deg, #121829, #0f1526);
-          border: 1px solid var(--border);
-          border-radius: 16px;
-          padding: 18px;
-        }
-        .trustCard h4 {
-          margin: 0 0 10px;
-        }
-        .trustCard ul {
-          margin: 0 0 14px 16px;
-          padding: 0;
-          color: var(--muted);
-          line-height: 1.6;
-        }
-      `}</style>
-    </>
+        {/* Footer simple */}
+        <div className="text-white/50 text-sm mt-8">
+          © {new Date().getFullYear()} CV-IA — Créé avec ❤️ pour booster vos candidatures
+        </div>
+      </div>
+    </div>
   );
 }
