@@ -1,5 +1,5 @@
 // pages/index.jsx
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { pdf } from "@react-pdf/renderer";
 
 // Templates PDF CV
@@ -30,28 +30,6 @@ async function fetchJSON(url, options) {
   }
 }
 
-// Analyse des changements texte avant/après
-function analyzeChanges(oldText = "", newText = "") {
-  const oldWords = oldText.split(/\s+/);
-  const newWords = newText.split(/\s+/);
-  const added = newWords.filter((w) => !oldWords.includes(w));
-  const removed = oldWords.filter((w) => !newWords.includes(w));
-
-  let summary = "";
-  if (added.length > 0)
-    summary += `🟢 ${added.length} mots ajoutés (${added.slice(0, 6).join(", ")}...). `;
-  if (removed.length > 0)
-    summary += `🔴 ${removed.length} mots supprimés (${removed.slice(0, 6).join(", ")}...). `;
-  if (Math.abs(newText.length - oldText.length) < 50)
-    summary += "✏️ Quelques reformulations mineures. ";
-  else if (newText.length > oldText.length)
-    summary += "📈 Texte enrichi. ";
-  else summary += "📉 Texte condensé. ";
-
-  return summary.trim();
-}
-
-// Préremplissage intelligent des métadonnées de lettre
 function buildLetterProfileAuto(data, fallbacks = {}) {
   const p = data?.profile || {};
   const j = data?.job || {};
@@ -73,11 +51,30 @@ function buildLetterProfileAuto(data, fallbacks = {}) {
   };
 }
 
+/* ======== Fonction pour comparer les textes avant/après ======== */
+function analyzeChanges(oldText = "", newText = "") {
+  const oldWords = oldText.split(/\s+/);
+  const newWords = newText.split(/\s+/);
+  const added = newWords.filter((w) => !oldWords.includes(w));
+  const removed = oldWords.filter((w) => !newWords.includes(w));
+
+  let summary = "";
+  if (added.length > 0) summary += `🟢 ${added.length} mots ajoutés (${added.slice(0, 6).join(", ")}...). `;
+  if (removed.length > 0) summary += `🔴 ${removed.length} mots supprimés (${removed.slice(0, 6).join(", ")}...). `;
+  if (Math.abs(newText.length - oldText.length) < 50)
+    summary += "✏️ Quelques reformulations mineures. ";
+  else if (newText.length > oldText.length)
+    summary += "📈 Texte enrichi. ";
+  else
+    summary += "📉 Texte condensé. ";
+
+  return summary.trim();
+}
+
 /* =========================
    COMPOSANT PRINCIPAL
    ========================= */
 export default function Home() {
-  // États
   const [cvText, setCvText] = useState("");
   const [offre, setOffre] = useState("");
   const [outJSON, setOutJSON] = useState(null);
@@ -86,9 +83,9 @@ export default function Home() {
   const [err, setErr] = useState(null);
   const [aiNote, setAiNote] = useState("");
   const [tone, setTone] = useState("professionnel");
-  const [toast, setToast] = useState(""); // ✅ popup toast
+  const [aiSummary, setAiSummary] = useState("");
 
-  // CV info
+  // Données CV simples
   const [cvName, setCvName] = useState("");
   const [cvTitle, setCvTitle] = useState("");
   const [cvEmail, setCvEmail] = useState("");
@@ -98,18 +95,6 @@ export default function Home() {
   const [cvSkills, setCvSkills] = useState("");
   const [cvExp, setCvExp] = useState("");
   const [cvEdu, setCvEdu] = useState("");
-
-  // Auto-hide toast
-  useEffect(() => {
-    if (toast) {
-      const timer = setTimeout(() => setToast(""), 4000);
-      return () => clearTimeout(timer);
-    }
-  }, [toast]);
-
-  function showToast(msg) {
-    setToast(msg);
-  }
 
   function buildBaseCVText() {
     if (cvText && cvText.trim()) return cvText.trim();
@@ -131,31 +116,33 @@ ${cvEdu || ""}
 `.trim();
   }
 
-  /* ========== IA : amélioration CV / lettre ========== */
+  /* ======== Amélioration IA avec résumé ======== */
   async function improveCV() {
     if (!aiNote.trim()) return setErr("Ajoute une consigne pour l’IA.");
     setLoading(true);
     setErr(null);
+    setAiSummary("");
     try {
       const oldText = JSON.stringify(outJSON, null, 2);
       const baseText = buildBaseCVText();
-      const body = {
-        cvText: baseText,
-        jobText: offre || "",
-        instructions: aiNote,
-        tone,
-        currentJSON: outJSON || null,
-        mode: "cv",
-      };
       const data = await fetchJSON("/api/generate-json", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          cvText: baseText,
+          jobText: offre || "",
+          instructions: aiNote,
+          tone,
+          currentJSON: outJSON || null,
+          mode: "cv",
+        }),
       });
+
       setOutJSON(data);
       const newText = JSON.stringify(data, null, 2);
       const diff = analyzeChanges(oldText, newText);
-      showToast(`✅ CV amélioré (ton ${tone}). ${diff}`);
+
+      setAiSummary(`✅ CV mis à jour (ton ${tone}). ${diff}`);
     } catch (e) {
       setErr(e.message || "Erreur IA (CV)");
     } finally {
@@ -168,21 +155,22 @@ ${cvEdu || ""}
     if (!outLetter?.letter) return setErr("Génère d’abord la lettre, puis applique la consigne.");
     setLoading(true);
     setErr(null);
+    setAiSummary("");
     try {
       const oldLetter = outLetter.letter;
-      const body = {
-        instructions: aiNote,
-        tone,
-        currentLetter: outLetter.letter,
-        currentProfile: outLetter.profile || null,
-        jobText: offre || "",
-        mode: "letter",
-      };
       const data = await fetchJSON("/api/generate-json", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          instructions: aiNote,
+          tone,
+          currentLetter: outLetter.letter,
+          currentProfile: outLetter.profile || null,
+          jobText: offre || "",
+          mode: "letter",
+        }),
       });
+
       const autoProfile = buildLetterProfileAuto(data, {
         cvName,
         cvTitle,
@@ -190,12 +178,14 @@ ${cvEdu || ""}
         cvPhone,
         cvLocation,
       });
+
       setOutLetter({
         profile: data?.profile ? autoProfile : outLetter.profile,
         letter: data?.letter || outLetter.letter,
       });
+
       const diff = analyzeChanges(oldLetter, data?.letter || "");
-      showToast(`✅ Lettre ajustée (ton ${tone}). ${diff}`);
+      setAiSummary(`✅ Lettre ajustée (ton ${tone}). ${diff}`);
     } catch (e) {
       setErr(e.message || "Erreur IA (lettre)");
     } finally {
@@ -203,25 +193,13 @@ ${cvEdu || ""}
     }
   }
 
-  /* =======================
-     RENDU
-  ======================= */
+  /* ======== Interface ======== */
   return (
-    <div className="min-h-screen text-white bg-gradient-to-b from-bg1 to-bg2 relative">
-      {/* ✅ Toast Notification */}
-      {toast && (
-        <div
-          className="fixed top-5 right-5 bg-emerald-600 text-white px-4 py-3 rounded-xl shadow-lg text-sm animate-slideIn"
-          style={{ animation: "slideIn 0.3s ease-out" }}
-        >
-          {toast}
-        </div>
-      )}
-
+    <div className="min-h-screen text-white bg-gradient-to-b from-bg1 to-bg2">
       <div className="max-w-[1100px] w-[92vw] mx-auto py-8">
         <h1 className="text-2xl font-bold mb-4">CV-IA</h1>
 
-        {/* --- Section IA --- */}
+        {/* --- IA --- */}
         <div className="border border-white/10 rounded-2xl bg-gradient-to-b from-card1 to-card2 p-5 mt-6">
           <h2 className="text-xl font-semibold mb-2">Parler à l’IA</h2>
           <p className="text-white/70 text-sm mb-2">
@@ -229,7 +207,6 @@ ${cvEdu || ""}
             raccourcis la lettre », etc.
           </p>
 
-          {/* Sélecteur de ton */}
           <div className="flex flex-wrap items-center gap-2 mb-3">
             <span className="text-white/70 text-sm">Ton souhaité :</span>
             {["professionnel", "convaincant", "créatif", "académique", "concis"].map((t) => (
@@ -270,24 +247,16 @@ ${cvEdu || ""}
               Appliquer à la lettre
             </button>
           </div>
+
+          {aiSummary && (
+            <div className="mt-4 text-sm border border-emerald-400/30 bg-emerald-500/10 text-emerald-300 p-3 rounded-xl">
+              {aiSummary}
+            </div>
+          )}
         </div>
 
         {err && <div className="text-red-400 mt-3">❌ {err}</div>}
       </div>
-
-      {/* ✅ Animation CSS */}
-      <style jsx>{`
-        @keyframes slideIn {
-          from {
-            transform: translateX(100%);
-            opacity: 0;
-          }
-          to {
-            transform: translateX(0);
-            opacity: 1;
-          }
-        }
-      `}</style>
     </div>
   );
 }
