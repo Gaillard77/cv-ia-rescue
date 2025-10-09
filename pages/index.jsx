@@ -1,6 +1,6 @@
 // pages/index.jsx
 import { useState } from "react";
-import { pdf, Document, Page, Text, StyleSheet } from "@react-pdf/renderer";
+import { pdf } from "@react-pdf/renderer";
 
 // Templates PDF CV
 import CVProModern from "../components/pdf/CVProModern";
@@ -8,45 +8,11 @@ import CVGoldHeader from "../components/pdf/CVGoldHeader";
 import CVDarkSidebar from "../components/pdf/CVDarkSidebar";
 import CVCleanPro from "../components/pdf/CVCleanPro";
 
-// en haut des imports :
+// Templates PDF LETTRE
 import LetterCascade from "../components/pdf/letters/LetterCascade";
-import LetterPostal from "../components/pdf/letters/LetterPostal";
-import LetterNanica from "../components/pdf/letters/LetterNanica";
-import LetterConcept from "../components/pdf/letters/LetterConcept";
-
-// ...
-const [letterTemplate, setLetterTemplate] = useState("nanica"); // "cascade" | "postal" | "nanica" | "concept"
-
-
-/* =========================
-   COMPOSANT LETTRE PDF
-   ========================= */
-const letterStyles = StyleSheet.create({
-  page: { padding: 28, fontFamily: "Helvetica" },
-  h1: { fontSize: 16, fontWeight: 700, marginBottom: 10, color: "#0e1a2b" },
-  meta: { fontSize: 10, color: "#4d5e78", marginBottom: 10 },
-  body: { fontSize: 11, lineHeight: 1.6, color: "#222" },
-  sign: { fontSize: 11, marginTop: 18 }
-});
-function LetterPDF({ profile = {}, letter = "" }) {
-  return (
-    <Document>
-      <Page size="A4" style={letterStyles.page}>
-        <Text style={letterStyles.h1}>Lettre de motivation</Text>
-        <Text style={letterStyles.meta}>
-          {(profile.fullName || "") +
-            (profile.email ? ` • ${profile.email}` : "") +
-            (profile.phone ? ` • ${profile.phone}` : "") +
-            (profile.location ? ` • ${profile.location}` : "")}
-        </Text>
-        <Text style={letterStyles.body}>{letter}</Text>
-        <Text style={letterStyles.sign}>
-          Cordialement,{`\n`}{profile.fullName || ""}
-        </Text>
-      </Page>
-    </Document>
-  );
-}
+import LetterPostal   from "../components/pdf/letters/LetterPostal";
+import LetterNanica   from "../components/pdf/letters/LetterNanica";
+import LetterConcept  from "../components/pdf/letters/LetterConcept";
 
 /* =========================
    HELPERS
@@ -64,6 +30,36 @@ async function fetchJSON(url, options){
   }
 }
 
+// Préremplissage intelligent des métadonnées de lettre
+function buildLetterProfileAuto(data, fallbacks = {}) {
+  const p = data?.profile || {};
+  const j = data?.job || {};
+
+  const {
+    cvName = "", cvTitle = "", cvEmail = "", cvPhone = "",
+    cvLocation = "",
+  } = fallbacks;
+
+  const cityFromLocation = (loc) => (loc || "").split(",")[0]?.trim() || "";
+
+  return {
+    fullName:  p.fullName || cvName || p.name || "",
+    title:     p.title    || cvTitle || "",
+    email:     p.email    || cvEmail || "",
+    phone:     p.phone    || cvPhone || "",
+    location:  p.location || cvLocation || "",
+    linkedin:  p.linkedin || "",
+
+    company:         j.company        || data?.company        || "",
+    recruiter:       j.recruiter      || data?.recruiter      || "",
+    companyAddress:  j.address        || j.companyAddress     || data?.companyAddress || "",
+    object:          j.object         || data?.object         || "",
+
+    city:            p.city || cityFromLocation(p.location || cvLocation),
+    date:            data?.date || new Date().toLocaleDateString(),
+  };
+}
+
 export default function Home() {
   // ===== États principaux =====
   const [cvText, setCvText] = useState("");
@@ -74,8 +70,9 @@ export default function Home() {
   const [err, setErr] = useState(null);
   const [extracting, setExtracting] = useState(false);
 
-  // ===== Choix du template =====
-  const [cvTemplate, setCvTemplate] = useState("dark"); // "modern" | "gold" | "dark" | "clean"
+  // ===== Choix des templates =====
+  const [cvTemplate, setCvTemplate] = useState("dark");      // "modern" | "gold" | "dark" | "clean"
+  const [letterTemplate, setLetterTemplate] = useState("nanica"); // "cascade" | "postal" | "nanica" | "concept"
 
   // ===== États du formulaire minimal =====
   const [cvName, setCvName] = useState("");
@@ -171,7 +168,13 @@ ${cvEdu || ""}
         headers:{ "Content-Type":"application/json" },
         body: JSON.stringify({ cvText: baseText, jobText: offre })
       });
-      setOutLetter({ profile: data.profile, letter: data.letter });
+
+      // Profil auto-complété pour la lettre
+      const autoProfile = buildLetterProfileAuto(data, {
+        cvName, cvTitle, cvEmail, cvPhone, cvLocation,
+      });
+
+      setOutLetter({ profile: autoProfile, letter: data.letter });
     }catch(e){ setErr(e.message || "Erreur"); }
     finally{ setLoading(false); }
   }
@@ -216,16 +219,37 @@ ${cvEdu || ""}
   // ===== Export PDF Lettre =====
   async function exportLetterPDF(){
     if(!outLetter) return;
+
+    const baseProfile = outLetter.profile || {};
     const effectivePhoto = (photoDataUrl && photoDataUrl.startsWith("data:image")) ? photoDataUrl :
                            (photoUrl?.trim() ? photoUrl.trim() : "");
+
     const profile = {
-      ...(outLetter.profile || {}),
+      ...baseProfile,
       ...(effectivePhoto ? { photoUrl: effectivePhoto } : {})
     };
-    const blob = await pdf(<LetterPDF profile={profile} letter={outLetter.letter} />).toBlob();
+
+    // Sélection du template de lettre
+    let Doc;
+    switch (letterTemplate) {
+      case "cascade":
+        Doc = <LetterCascade profile={profile} letter={outLetter.letter} />;
+        break;
+      case "postal":
+        Doc = <LetterPostal profile={profile} letter={outLetter.letter} />;
+        break;
+      case "concept":
+        Doc = <LetterConcept profile={profile} letter={outLetter.letter} />;
+        break;
+      case "nanica":
+      default:
+        Doc = <LetterNanica profile={profile} letter={outLetter.letter} />;
+    }
+
+    const blob = await pdf(Doc).toBlob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = "Lettre_de_motivation.pdf"; a.click();
+    a.href = url; a.download = `Lettre_${letterTemplate}.pdf`; a.click();
     URL.revokeObjectURL(url);
   }
 
@@ -399,7 +423,7 @@ ${cvEdu || ""}
             </button>
           </div>
 
-          {/* Sélecteur texte de mise en page */}
+          {/* Sélecteur texte de mise en page (CV) */}
           <div className="mt-4">
             <div className="text-sm text-white/70 mb-2">Mise en page :</div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -433,6 +457,17 @@ ${cvEdu || ""}
             >
               Exporter Lettre PDF
             </button>
+          </div>
+
+          {/* Sélecteur texte de mise en page (Lettre) */}
+          <div className="mt-4">
+            <div className="text-sm text-white/70 mb-2">Mise en page de la lettre :</div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <TemplateCard id="cascade" title="Cascade"   selected={letterTemplate==="cascade"} onClick={()=>setLetterTemplate("cascade")} />
+              <TemplateCard id="postal"  title="Postal"    selected={letterTemplate==="postal"}  onClick={()=>setLetterTemplate("postal")} />
+              <TemplateCard id="nanica"  title="Classique" selected={letterTemplate==="nanica"}  onClick={()=>setLetterTemplate("nanica")} />
+              <TemplateCard id="concept" title="Concept"   selected={letterTemplate==="concept"} onClick={()=>setLetterTemplate("concept")} />
+            </div>
           </div>
         </div>
 
