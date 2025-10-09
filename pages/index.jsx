@@ -9,48 +9,6 @@ import CVDarkSidebar from "../components/pdf/CVDarkSidebar";
 import CVCleanPro from "../components/pdf/CVCleanPro";
 
 /* =========================
-   VIGNETTES INTÉGRÉES (aucun fichier public requis)
-   ========================= */
-const PREVIEW_SVGS = {
-  modern: `data:image/svg+xml;utf8,${encodeURIComponent(`
-    <svg xmlns='http://www.w3.org/2000/svg' width='180' height='120'>
-      <rect width='100%' height='100%' fill='#fff'/>
-      <rect x='0' y='0' width='180' height='30' fill='#eef2ff'/>
-      <text x='10' y='20' font-size='14' fill='#1f2937' font-family='Arial'>Modern</text>
-      <line x1='90' y1='30' x2='90' y2='110' stroke='#e5e7eb' stroke-width='2'/>
-      <text x='10' y='55' font-size='10' fill='#374151' font-family='Arial'>• React • Node • SQL</text>
-      <text x='100' y='55' font-size='10' fill='#374151' font-family='Arial'>TechCorp • StartApp</text>
-    </svg>
-  `)}`,
-  gold: `data:image/svg+xml;utf8,${encodeURIComponent(`
-    <svg xmlns='http://www.w3.org/2000/svg' width='180' height='120'>
-      <rect width='100%' height='100%' fill='#fff'/>
-      <rect x='0' y='0' width='180' height='35' fill='#c8a75a'/>
-      <circle cx='20' cy='18' r='12' fill='#f3f4f6' stroke='#b58943' stroke-width='2'/>
-      <text x='40' y='22' font-size='14' fill='#1f2937' font-family='Arial'>Gold Header</text>
-      <text x='10' y='60' font-size='10' fill='#374151' font-family='Arial'>Objectifs / Expériences</text>
-    </svg>
-  `)}`,
-  dark: `data:image/svg+xml;utf8,${encodeURIComponent(`
-    <svg xmlns='http://www.w3.org/2000/svg' width='180' height='120'>
-      <rect width='100%' height='100%' fill='#fff'/>
-      <rect x='0' y='0' width='50' height='120' fill='#1f2937'/>
-      <text x='8' y='18' font-size='9' fill='#c7d2fe' font-family='Arial'>Dark</text>
-      <text x='60' y='22' font-size='12' fill='#111827' font-family='Arial'>Sidebar</text>
-      <text x='60' y='46' font-size='10' fill='#374151' font-family='Arial'>Profil / XP</text>
-    </svg>
-  `)}`,
-  clean: `data:image/svg+xml;utf8,${encodeURIComponent(`
-    <svg xmlns='http://www.w3.org/2000/svg' width='180' height='120'>
-      <rect width='100%' height='100%' fill='#fff'/>
-      <line x1='10' y1='20' x2='170' y2='20' stroke='#111' stroke-width='2'/>
-      <text x='10' y='16' font-size='14' fill='#111' font-family='Arial'>Clean Pro</text>
-      <text x='10' y='50' font-size='10' fill='#000' font-family='Arial'>Profil / Compétences</text>
-    </svg>
-  `)}`
-};
-
-/* =========================
    COMPOSANT LETTRE PDF
    ========================= */
 const letterStyles = StyleSheet.create({
@@ -261,23 +219,16 @@ ${cvEdu || ""}
     URL.revokeObjectURL(url);
   }
 
-  // ===== Carte Template (vignette intégrée : plus d'img externe) =====
+  // ===== Carte Template (texte seulement, cliquable) =====
   function TemplateCard({ id, title, selected, onClick }){
-    const src = PREVIEW_SVGS[id] || PREVIEW_SVGS.modern;
     return (
       <button
         onClick={onClick}
-        className={`group relative overflow-hidden rounded-xl border ${selected ? "border-white" : "border-white/20"} hover:border-white/60 transition`}
+        className={`rounded-xl border transition px-4 py-6 text-center
+          ${selected ? "border-white bg-white/10" : "border-white/20 hover:border-white/60"}`}
         title={title}
       >
-        <div className="w-[180px] h-[120px] bg-white/5 flex items-center justify-center">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={src} alt={title} className="w-full h-full object-cover" />
-        </div>
-        <div className="absolute bottom-0 left-0 right-0 bg-black/50 px-2 py-1 text-xs">
-          {title}
-        </div>
-        {selected && <div className="absolute inset-0 ring-2 ring-white/80 pointer-events-none rounded-xl" />}
+        <span className="font-medium">{title}</span>
       </button>
     );
   }
@@ -438,7 +389,7 @@ ${cvEdu || ""}
             </button>
           </div>
 
-          {/* Sélecteur visuel de mise en page */}
+          {/* Sélecteur texte de mise en page */}
           <div className="mt-4">
             <div className="text-sm text-white/70 mb-2">Mise en page :</div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -446,9 +397,6 @@ ${cvEdu || ""}
               <TemplateCard id="gold"   title="Gold Header"  selected={cvTemplate==="gold"}   onClick={()=>setCvTemplate("gold")} />
               <TemplateCard id="dark"   title="Dark Sidebar" selected={cvTemplate==="dark"}   onClick={()=>setCvTemplate("dark")} />
               <TemplateCard id="clean"  title="Clean Pro"    selected={cvTemplate==="clean"}  onClick={()=>setCvTemplate("clean")} />
-            </div>
-            <div className="text-white/50 text-xs mt-2">
-              Vignettes intégrées : aucun fichier /public/templates requis.
             </div>
           </div>
         </div>
