@@ -108,23 +108,17 @@ export default function Landing() {
                 lettre de motivation personnalisée et une checklist d’entretien.
               </p>
 
-              <div className="flex flex-wrap gap-3 mt-5">
-                <Link
-                  href="/app"
-                  className="rounded-xl px-5 py-3 font-semibold bg-gradient-to-br from-indigo-500 to-violet-600 hover:brightness-110 shadow-[0_10px_30px_rgba(99,102,241,.35)]"
-                >
-                  Commencer
-                </Link>
-                <a
-                  href="#tarifs"
-                  className="rounded-xl px-5 py-3 font-semibold border border-white/15 hover:border-indigo-400/50"
-                >
-                  Rejoindre la bêta
-                </a>
-              </div>
-              <div className="text-white/50 text-xs mt-3">
-                Gratuit pendant la bêta • Annulable à tout moment
-              </div>
+      <div className="flex flex-wrap gap-3 mt-5">
+  <Link
+    href="/app"
+    className="rounded-xl px-5 py-3 font-semibold bg-gradient-to-br from-indigo-500 to-violet-600 hover:brightness-110 shadow-[0_10px_30px_rgba(99,102,241,.35)]"
+  >
+    Commencer
+  </Link>
+</div>
+<div className="text-white/50 text-xs mt-3">
+  Gratuit et sans engagement • Annulable à tout moment
+</div>
 
               {/* features */}
               <div id="features" className="grid sm:grid-cols-3 gap-3 mt-8">
