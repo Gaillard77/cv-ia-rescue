@@ -83,4 +83,8 @@ export default function SignIn() {
       </div>
     </div>
   );
+ 
+  <p className="text-center mt-4 text-sm">
+  Pas encore de compte ? <Link href="/auth/register" className="text-indigo-400 hover:underline">Créer un compte</Link>
+</p>
 }
