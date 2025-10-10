@@ -7,9 +7,14 @@ import prisma from "../../../lib/prisma";
 import bcrypt from "bcryptjs";
 
 export default NextAuth({
+  trustHost: true,     // ✅
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
   secret: process.env.NEXTAUTH_SECRET,
+  providers: [ /* ... */ ],
+  pages: { signIn: "/auth/signin" },
+  callbacks: { /* ... */ },
+});
 
   providers: [
     // (Optionnel) Google
