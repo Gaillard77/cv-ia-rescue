@@ -5,12 +5,16 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@react-pdf/renderer": "^3.4.4",
+    "@prisma/client": "^5.18.0",
+    "@next-auth/prisma-adapter": "^1.0.7",
     "mammoth": "^1.6.0",
     "next": "14.2.5",
+    "next-auth": "^4.24.7",
     "openai": "^4.52.0",
     "pdf-parse": "^1.1.1",
     "react": "18.3.1",
@@ -19,6 +23,7 @@
   "devDependencies": {
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.41",
-    "tailwindcss": "^3.4.10"
+    "tailwindcss": "^3.4.10",
+    "prisma": "^5.18.0"
   }
 }
