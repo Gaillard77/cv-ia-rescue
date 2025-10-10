@@ -1,26 +1,26 @@
 // pages/api/register.js
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../../lib/prisma";
 import bcrypt from "bcryptjs";
 
-const prisma = new PrismaClient();
-
 export default async function handler(req, res) {
-  if (req.method !== "POST")
-    return res.status(405).json({ error: "Méthode non autorisée" });
+  if (req.method !== "POST") return res.status(405).json({ error: "Méthode non autorisée" });
 
-  const { email, password, name } = req.body;
+  try {
+    const { name, email, password } = req.body || {};
+    if (!email || !password) return res.status(400).json({ error: "Email et mot de passe requis" });
 
-  if (!email || !password)
-    return res.status(400).json({ error: "Email et mot de passe requis." });
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) return res.status(409).json({ error: "Un compte existe déjà avec cet email." });
 
-  const exist = await prisma.user.findUnique({ where: { email } });
-  if (exist) return res.status(400).json({ error: "Cet email est déjà utilisé." });
+    const passwordHash = await bcrypt.hash(password, 10);
 
-  const hashed = await bcrypt.hash(password, 10);
+    await prisma.user.create({
+      data: { name: name || null, email, passwordHash }
+    });
 
-  const user = await prisma.user.create({
-    data: { email, password: hashed, name },
-  });
-
-  return res.status(201).json({ message: "Utilisateur créé", user });
+    return res.status(201).json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: "Erreur serveur" });
+  }
 }
