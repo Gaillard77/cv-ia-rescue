@@ -1,75 +1,56 @@
-// pages/auth/register.jsx
-import { useState } from "react";
-import Link from "next/link";
+// pages/api/register.js
+import prisma from "../../lib/prisma";
+import bcrypt from "bcryptjs";
 
-export default function Register() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
-  const [msg, setMsg] = useState("");
-  const [error, setError] = useState("");
-
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setMsg(""); setError("");
-
-    const res = await fetch("/api/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, name }),
-    });
-
-    const data = await res.json();
-    if (!res.ok) setError(data.error || "Erreur d’inscription");
-    else setMsg("Compte créé avec succès ! Vous pouvez vous connecter.");
+export default async function handler(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Méthode non autorisée" });
   }
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0b0f19] text-white p-6">
-      <div className="max-w-md w-full border border-white/10 rounded-2xl bg-[#111827] p-6">
-        <h1 className="text-2xl font-bold mb-4">Créer un compte</h1>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <input
-            type="text"
-            placeholder="Nom"
-            className="w-full rounded-xl p-3 bg-[#0f1526] border border-white/15"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-          />
-          <input
-            type="email"
-            placeholder="Email"
-            className="w-full rounded-xl p-3 bg-[#0f1526] border border-white/15"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <input
-            type="password"
-            placeholder="Mot de passe"
-            className="w-full rounded-xl p-3 bg-[#0f1526] border border-white/15"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
+  try {
+    const { email, password, name } = req.body || {};
 
-          <button
-            type="submit"
-            className="w-full rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 py-3 font-semibold hover:brightness-110"
-          >
-            Créer le compte
-          </button>
-        </form>
+    // Validations basiques
+    if (!email || !password || !name) {
+      return res.status(400).json({ error: "Champs manquants" });
+    }
+    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    if (!emailOk) return res.status(400).json({ error: "Email invalide" });
+    if (password.length < 6)
+      return res.status(400).json({ error: "Mot de passe trop court (min. 6)" });
 
-        {msg && <p className="text-green-400 mt-3">{msg}</p>}
-        {error && <p className="text-red-400 mt-3">{error}</p>}
+    // Vérifie si un user existe déjà
+    const existing = await prisma.user.findUnique({ where: { email } });
 
-        <p className="text-center mt-4 text-sm">
-          Déjà un compte ? <Link href="/auth/signin" className="text-indigo-400 hover:underline">Connexion</Link>
-        </p>
-      </div>
-    </div>
-  );
+    // Cas 1 : user déjà présent avec un mot de passe -> refuse
+    if (existing && existing.password && existing.password.length > 0) {
+      return res.status(409).json({ error: "Un compte existe déjà avec cet e-mail" });
+    }
+
+    // Hash du password
+    const hashed = await bcrypt.hash(password, 10);
+
+    // Cas 2 : user créé via Google (pas de password) -> on complète
+    if (existing && !existing.password) {
+      await prisma.user.update({
+        where: { email },
+        data: { name, password: hashed },
+      });
+      return res.status(200).json({ ok: true, message: "Compte complété, vous pouvez vous connecter." });
+    }
+
+    // Cas 3 : création normale
+    await prisma.user.create({
+      data: {
+        email,
+        name,
+        password: hashed,
+      },
+    });
+
+    return res.status(200).json({ ok: true, message: "Compte créé avec succès !" });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: "Erreur serveur" });
+  }
 }
