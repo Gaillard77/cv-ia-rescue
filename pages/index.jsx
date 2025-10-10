@@ -108,17 +108,17 @@ export default function Landing() {
                 lettre de motivation personnalisée et une checklist d’entretien.
               </p>
 
-      <div className="flex flex-wrap gap-3 mt-5">
-  <Link
-    href="/app"
-    className="rounded-xl px-5 py-3 font-semibold bg-gradient-to-br from-indigo-500 to-violet-600 hover:brightness-110 shadow-[0_10px_30px_rgba(99,102,241,.35)]"
-  >
-    Commencer
-  </Link>
-</div>
-<div className="text-white/50 text-xs mt-3">
-  Gratuit et sans engagement • Annulable à tout moment
-</div>
+              <div className="flex flex-wrap gap-3 mt-5">
+                <Link
+                  href="/app"
+                  className="rounded-xl px-5 py-3 font-semibold bg-gradient-to-br from-indigo-500 to-violet-600 hover:brightness-110 shadow-[0_10px_30px_rgba(99,102,241,.35)]"
+                >
+                  Commencer
+                </Link>
+              </div>
+              <div className="text-white/50 text-xs mt-3">
+                Gratuit et sans engagement • Annulable à tout moment
+              </div>
 
               {/* features */}
               <div id="features" className="grid sm:grid-cols-3 gap-3 mt-8">
@@ -166,32 +166,24 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* PRICING */}
+      {/* PRICING (mis à jour) */}
       <section id="tarifs" className="mx-auto w-[92vw] max-w-6xl py-6 md:py-8">
         <h2 className="text-xl md:text-2xl font-semibold mb-4">Tarifs simples</h2>
-        <div className="grid md:grid-cols-3 gap-5">
+        <div className="grid md:grid-cols-2 gap-5">
           <PricingCard
             plan="Gratuit"
-            badge="Beta"
             price="0€"
-            features={["CV-IA", "Lettre + Checklist", "Export PDF"]}
+            features={["2 CV inclus", "1 lettre de motivation", "Export PDF"]}
             ctaText="Commencer"
             href="/app"
           />
           <PricingCard
             plan="Pro"
-            badge="Recommandé"
-            price="12€/mois"
-            features={["Illimité", "Templates premium", "Historique & suivis"]}
+            price="3€/mois"
+            features={["Génération illimitée", "Templates premium", "Accès prioritaire"]}
             ctaText="Passer en Pro"
             href="/app"
             highlight
-          />
-          <PricingCard
-            plan="Coach+"
-            price="49€/mois"
-            features={["Pro +", "Review humain", "Priorité support"]}
-            ctaText="Contacter"
           />
         </div>
       </section>
