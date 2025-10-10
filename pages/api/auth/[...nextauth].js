@@ -1,64 +1,64 @@
 // pages/api/auth/[...nextauth].js
 import NextAuth from "next-auth";
+import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
-// import GoogleProvider from "next-auth/providers/google";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
-import { prisma } from "../../../lib/prisma";
-const hash = await bcrypt.hash(password, 10);
-const ok = await bcrypt.compare(password, user.password);
+import prisma from "../../../lib/prisma";
+import bcrypt from "bcryptjs";
 
-
-export const authOptions = {
+export default NextAuth({
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
   secret: process.env.NEXTAUTH_SECRET,
 
   providers: [
+    // (Optionnel) Google
+    ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+      ? [
+          GoogleProvider({
+            clientId: process.env.GOOGLE_CLIENT_ID,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+          }),
+        ]
+      : []),
+
+    // Credentials (email/mot de passe)
     CredentialsProvider({
-      name: "Email & mot de passe",
+      name: "Identifiants",
       credentials: {
         email: { label: "Email", type: "email" },
-        password: { label: "Mot de passe", type: "password" }
+        password: { label: "Mot de passe", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null;
+        const { email, password } = credentials ?? {};
+        if (!email || !password) throw new Error("Email et mot de passe requis");
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email }
-        });
-        if (!user?.passwordHash) return null;
+        const user = await prisma.user.findUnique({ where: { email } });
+        if (!user || !user.password) {
+          throw new Error("Identifiants invalides");
+        }
 
-        const ok = await bcrypt.compare(credentials.password, user.passwordHash);
-        if (!ok) return null;
+        const ok = await bcrypt.compare(password, user.password);
+        if (!ok) throw new Error("Identifiants invalides");
 
-        return { id: user.id, name: user.name || "", email: user.email, image: user.image || null };
-      }
+        // ce qui sera dans le JWT
+        return { id: user.id, name: user.name, email: user.email };
+      },
     }),
-
-    // Google (optionnel)
-    // GoogleProvider({
-    //   clientId: process.env.GOOGLE_CLIENT_ID,
-    //   clientSecret: process.env.GOOGLE_CLIENT_SECRET
-    // })
   ],
 
   pages: {
-    signIn: "/auth/signin"
+    signIn: "/auth/signin",
   },
 
   callbacks: {
     async jwt({ token, user }) {
-      if (user?.id) token.uid = user.id;
+      if (user?.id) token.id = user.id;
       return token;
     },
     async session({ session, token }) {
-      if (token?.uid) session.user.id = token.uid;
+      if (token?.id) session.user.id = token.id;
       return session;
-    }
-  }
-};
-
-export default function auth(req, res) {
-  // Important: NextAuth doit tourner en Node (pas “edge”) pour Prisma.
-  return NextAuth(req, res, authOptions);
-}
+    },
+  },
+});
