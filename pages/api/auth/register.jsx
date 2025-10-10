@@ -8,9 +8,6 @@ export default function Register() {
   const [name, setName] = useState("");
   const [msg, setMsg] = useState("");
   const [error, setError] = useState("");
- 
-  const hash = await bcrypt.hash(password, 10);
-const ok = await bcrypt.compare(password, user.password);
 
 
   async function handleSubmit(e) {
