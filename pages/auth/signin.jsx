@@ -1,60 +1,86 @@
 // pages/auth/signin.jsx
-import { getProviders, signIn } from "next-auth/react";
+import { useState } from "react";
 import Link from "next/link";
+import { signIn } from "next-auth/react";
 
-export default function SignIn({ providers, callbackUrl = "/app" }) {
+export default function SignIn() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [err, setErr] = useState("");
+
+  async function onSubmit(e) {
+    e.preventDefault();
+    setErr("");
+
+    const res = await signIn("credentials", {
+      redirect: false,        // on gère nous-mêmes l'erreur
+      email,
+      password,
+      callbackUrl: "/app",    // où aller après connexion
+    });
+
+    if (res?.error) setErr("Email ou mot de passe incorrect.");
+    else if (res?.ok) window.location.href = res.url || "/app";
+  }
+
   return (
-    <div className="min-h-screen bg-[#0b0f19] text-white flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
-        {/* Header simple */}
-        <div className="flex items-center gap-3 mb-6 justify-center">
-          <span className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow" />
-          <h1 className="text-2xl font-bold">CV-IA</h1>
+    <div className="min-h-screen bg-[#0b0f19] text-white flex items-center justify-center p-6">
+      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-gradient-to-b from-gray-800/40 to-gray-900/60 p-6 shadow-[0_18px_48px_rgba(0,0,0,0.45)]">
+        <div className="flex items-center gap-3 mb-4">
+          <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600" />
+          <h1 className="text-xl font-bold">CV-IA</h1>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-gray-800/40 to-gray-900/60 p-6 shadow-[0_10px_28px_rgba(0,0,0,0.35)]">
-          <h2 className="text-xl font-semibold mb-2 text-center">Connexion</h2>
-          <p className="text-white/70 text-sm text-center mb-6">
-            Connecte-toi pour accéder à l’atelier CV & Lettre.
-          </p>
+        <h2 className="text-2xl font-semibold mb-2">Connexion</h2>
+        <p className="text-white/70 mb-4">
+          Entre ton email et ton mot de passe pour accéder à l’atelier CV & Lettre.
+        </p>
 
-          {/* Boutons providers */}
-          <div className="space-y-3">
-            {providers &&
-              Object.values(providers).map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => signIn(p.id, { callbackUrl })}
-                  className="w-full rounded-xl px-4 py-3 font-semibold bg-gradient-to-br from-indigo-500 to-violet-600 hover:brightness-110 shadow-[0_10px_30px_rgba(99,102,241,.35)]"
-                >
-                  {p.id === "google" ? "Continuer avec Google" : `Continuer avec ${p.name}`}
-                </button>
-              ))}
+        <form onSubmit={onSubmit} className="space-y-3">
+          <div>
+            <label className="text-sm text-white/70">Email</label>
+            <input
+              type="email"
+              className="mt-1 w-full rounded-xl border border-white/15 bg-[#0f1526] text-white p-3"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="ex: test@cvia.com"
+              required
+            />
           </div>
 
-          {/* Lien retour */}
-          <div className="text-center mt-5">
-            <Link href="/" className="text-white/70 text-sm hover:text-white">
-              ← Retour à l’accueil
-            </Link>
+          <div>
+            <label className="text-sm text-white/70">Mot de passe</label>
+            <input
+              type="password"
+              className="mt-1 w-full rounded-xl border border-white/15 bg-[#0f1526] text-white p-3"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="ex: 123456"
+              required
+            />
           </div>
 
-          {/* Mentions */}
-          <div className="text-[11px] text-white/50 text-center mt-6">
-            En continuant, tu acceptes nos conditions et notre politique de confidentialité.
-          </div>
+          {err && <div className="text-red-400 text-sm">{err}</div>}
+
+          <button
+            type="submit"
+            className="w-full rounded-xl px-4 py-3 font-semibold bg-gradient-to-br from-indigo-500 to-violet-600 hover:brightness-110 shadow-[0_10px_30px_rgba(99,102,241,.35)]"
+          >
+            Se connecter
+          </button>
+        </form>
+
+        <div className="mt-4 text-center">
+          <Link href="/" className="text-white/70 hover:text-white text-sm">
+            ← Retour à l’accueil
+          </Link>
         </div>
 
-        <footer className="text-center text-white/40 text-xs mt-6">
-          © {new Date().getFullYear()} CV-IA
-        </footer>
+        <p className="text-[11px] text-white/50 mt-4 text-center">
+          En continuant, tu acceptes nos conditions et notre politique de confidentialité.
+        </p>
       </div>
     </div>
   );
-}
-
-export async function getServerSideProps(ctx) {
-  const providers = await getProviders();
-  const callbackUrl = typeof ctx.query.callbackUrl === "string" ? ctx.query.callbackUrl : "/app";
-  return { props: { providers, callbackUrl } };
 }
