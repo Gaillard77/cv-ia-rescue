@@ -34,12 +34,7 @@ async function fetchJSON(url, options){
 function buildLetterProfileAuto(data, fallbacks = {}) {
   const p = data?.profile || {};
   const j = data?.job || {};
-
-  const {
-    cvName = "", cvTitle = "", cvEmail = "", cvPhone = "",
-    cvLocation = "",
-  } = fallbacks;
-
+  const { cvName = "", cvTitle = "", cvEmail = "", cvPhone = "", cvLocation = "" } = fallbacks;
   const cityFromLocation = (loc) => (loc || "").split(",")[0]?.trim() || "";
 
   return {
@@ -49,12 +44,10 @@ function buildLetterProfileAuto(data, fallbacks = {}) {
     phone:     p.phone    || cvPhone || "",
     location:  p.location || cvLocation || "",
     linkedin:  p.linkedin || "",
-
     company:         j.company        || data?.company        || "",
     recruiter:       j.recruiter      || data?.recruiter      || "",
     companyAddress:  j.address        || j.companyAddress     || data?.companyAddress || "",
     object:          j.object         || data?.object         || "",
-
     city:            p.city || cityFromLocation(p.location || cvLocation),
     date:            data?.date || new Date().toLocaleDateString(),
   };
@@ -270,22 +263,10 @@ ${cvEdu || ""}
   return (
     <div className="min-h-screen text-white bg-gradient-to-b from-bg1 to-bg2">
       <div className="max-w-[1100px] w-[92vw] mx-auto py-8">
-        {/* Header */}
-        <div className="flex items-center justify-between gap-4 mb-5">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl shadow-soft bg-gradient-to-br from-accent to-indigo-600" />
-            <div>
-              <h1 className="text-2xl m-0">CV-IA</h1>
-              <div className="text-xs border border-indigo-400/40 bg-indigo-400/20 px-2.5 py-1 rounded-full">
-                Upload + Formulaire + IA + PDF multi-templates
-              </div>
-            </div>
-          </div>
-          <div className="hidden sm:flex gap-2 flex-wrap">
-            <div className="bg-indigo-400/20 border border-indigo-400/40 text-indigo-100 px-3 py-1 rounded-lg text-sm">⚡ GPT</div>
-            <div className="bg-indigo-400/20 border border-indigo-400/40 text-indigo-100 px-3 py-1 rounded-lg text-sm">📄 Templates PDF</div>
-            <div className="bg-indigo-400/20 border border-indigo-400/40 text-indigo-100 px-3 py-1 rounded-lg text-sm">🧠 JSON structuré</div>
-          </div>
+        {/* Header — épuré : logo + titre seulement */}
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 rounded-xl shadow-soft bg-gradient-to-br from-accent to-indigo-600" />
+          <h1 className="text-3xl font-bold">CV-IA</h1>
         </div>
 
         {/* --------- SECTION CV --------- */}
