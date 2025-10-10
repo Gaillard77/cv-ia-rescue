@@ -1,24 +1,40 @@
+// pages/api/auth/[...nextauth].js
 import NextAuth from "next-auth";
-import GoogleProvider from "next-auth/providers/google";
-import { PrismaAdapter } from "@next-auth/prisma-adapter";
-import { prisma } from "../../../server/prisma";
+import CredentialsProvider from "next-auth/providers/credentials";
 
-export const authOptions = {
-  adapter: PrismaAdapter(prisma),
+export default NextAuth({
   providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    }),
-    // Tu peux ajouter EmailProvider ici si tu veux le login par email
-  ],
-  session: { strategy: "jwt" },
-  callbacks: {
-    async session({ session, token }) {
-      if (token?.sub) session.user.id = token.sub;
-      return session;
-    },
-  },
-};
+    CredentialsProvider({
+      name: "Connexion",
+      credentials: {
+        email: { label: "Email", type: "text" },
+        password: { label: "Mot de passe", type: "password" },
+      },
+      async authorize(credentials) {
+        const allowedEmail = process.env.AUTH_EMAIL;
+        const allowedPassword = process.env.AUTH_PASSWORD;
 
-export default NextAuth(authOptions);
+        if (!credentials?.email || !credentials?.password) return null;
+
+        if (
+          credentials.email === allowedEmail &&
+          credentials.password === allowedPassword
+        ) {
+          // Utilisateur “virtuel” validé
+          return { id: "user-1", name: "Utilisateur", email: allowedEmail };
+        }
+
+        // Mauvais identifiants
+        return null;
+      },
+    }),
+    // 👉 Tu pourras ajouter Google plus tard si tu veux :
+    // GoogleProvider({ clientId:..., clientSecret:... })
+  ],
+
+  session: { strategy: "jwt" },
+  secret: process.env.NEXTAUTH_SECRET,
+
+  // On force l'utilisation de notre page de login custom
+  pages: { signIn: "/auth/signin" },
+});
