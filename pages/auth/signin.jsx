@@ -1,90 +1,95 @@
 // pages/auth/signin.jsx
 import { useState } from "react";
-import Link from "next/link";
 import { signIn } from "next-auth/react";
+import { useRouter } from "next/router";
+import Link from "next/link";
 
-export default function SignIn() {
+export default function SignInPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [err, setErr] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  async function onSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
-    setErr("");
+    setLoading(true);
+    setError("");
 
     const res = await signIn("credentials", {
-      redirect: false,        // on gère nous-mêmes l'erreur
+      redirect: false,
       email,
       password,
-      callbackUrl: "/app",    // où aller après connexion
     });
 
-    if (res?.error) setErr("Email ou mot de passe incorrect.");
-    else if (res?.ok) window.location.href = res.url || "/app";
+    setLoading(false);
+
+    if (res.error) {
+      setError("❌ " + res.error);
+    } else {
+      router.push("/app");
+    }
   }
 
   return (
-    <div className="min-h-screen bg-[#0b0f19] text-white flex items-center justify-center p-6">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-gradient-to-b from-gray-800/40 to-gray-900/60 p-6 shadow-[0_18px_48px_rgba(0,0,0,0.45)]">
-        <div className="flex items-center gap-3 mb-4">
-          <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600" />
-          <h1 className="text-xl font-bold">CV-IA</h1>
+    <div className="min-h-screen flex items-center justify-center bg-[#0b0f19] text-white p-6">
+      <div className="max-w-md w-full border border-white/10 rounded-2xl bg-[#111827] p-6 shadow-xl">
+        <div className="flex flex-col items-center mb-4">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 mb-2" />
+          <h1 className="text-2xl font-bold">Connexion</h1>
+          <p className="text-white/60 text-sm mt-1 text-center">
+            Connecte-toi pour accéder à ton espace CV & Lettre.
+          </p>
         </div>
 
-        <h2 className="text-2xl font-semibold mb-2">Connexion</h2>
-        <p className="text-white/70 mb-4">
-          Entre ton email et ton mot de passe pour accéder à l’atelier CV & Lettre.
-        </p>
-
-        <form onSubmit={onSubmit} className="space-y-3">
+        <form onSubmit={handleSubmit} className="space-y-4 mt-4">
           <div>
-            <label className="text-sm text-white/70">Email</label>
+            <label className="block text-white/70 mb-2 font-medium">Email</label>
             <input
               type="email"
-              className="mt-1 w-full rounded-xl border border-white/15 bg-[#0f1526] text-white p-3"
+              placeholder="exemple@mail.com"
+              className="w-full rounded-xl p-3 bg-[#0f1526] border border-white/15 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="ex: test@cvia.com"
               required
             />
           </div>
 
           <div>
-            <label className="text-sm text-white/70">Mot de passe</label>
+            <label className="block text-white/70 mb-2 font-medium">Mot de passe</label>
             <input
               type="password"
-              className="mt-1 w-full rounded-xl border border-white/15 bg-[#0f1526] text-white p-3"
+              placeholder="••••••••"
+              className="w-full rounded-xl p-3 bg-[#0f1526] border border-white/15 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="ex: 123456"
               required
             />
           </div>
 
-          {err && <div className="text-red-400 text-sm">{err}</div>}
+          {error && (
+            <div className="text-red-400 text-sm font-medium text-center">{error}</div>
+          )}
 
           <button
             type="submit"
-            className="w-full rounded-xl px-4 py-3 font-semibold bg-gradient-to-br from-indigo-500 to-violet-600 hover:brightness-110 shadow-[0_10px_30px_rgba(99,102,241,.35)]"
+            className="w-full rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 py-3 font-semibold hover:brightness-110 disabled:opacity-60"
+            disabled={loading}
           >
-            Se connecter
+            {loading ? "Connexion..." : "Se connecter"}
           </button>
         </form>
 
-        <div className="mt-4 text-center">
-          <Link href="/" className="text-white/70 hover:text-white text-sm">
-            ← Retour à l’accueil
+        <p className="text-center mt-4 text-sm text-white/70">
+          Pas encore de compte ?{" "}
+          <Link
+            href="/auth/register"
+            className="text-indigo-400 hover:underline font-medium"
+          >
+            Créer un compte
           </Link>
-        </div>
-
-        <p className="text-[11px] text-white/50 mt-4 text-center">
-          En continuant, tu acceptes nos conditions et notre politique de confidentialité.
         </p>
       </div>
     </div>
   );
- 
-  <p className="text-center mt-4 text-sm">
-  Pas encore de compte ? <Link href="/auth/register" className="text-indigo-400 hover:underline">Créer un compte</Link>
-</p>
 }
