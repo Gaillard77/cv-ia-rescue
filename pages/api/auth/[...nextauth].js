@@ -1,35 +1,62 @@
 // pages/api/auth/[...nextauth].js
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { PrismaClient } from "@prisma/client";
+// import GoogleProvider from "next-auth/providers/google";
+import { PrismaAdapter } from "@next-auth/prisma-adapter";
+import { prisma } from "../../../lib/prisma";
 import bcrypt from "bcryptjs";
 
-const prisma = new PrismaClient();
-
 export const authOptions = {
+  adapter: PrismaAdapter(prisma),
+  session: { strategy: "jwt" },
+  secret: process.env.NEXTAUTH_SECRET,
+
   providers: [
     CredentialsProvider({
       name: "Email & mot de passe",
       credentials: {
-        email: { label: "Email", type: "text" },
-        password: { label: "Mot de passe", type: "password" },
+        email: { label: "Email", type: "email" },
+        password: { label: "Mot de passe", type: "password" }
       },
       async authorize(credentials) {
-        const { email, password } = credentials;
+        if (!credentials?.email || !credentials?.password) return null;
 
-        const user = await prisma.user.findUnique({ where: { email } });
-        if (!user) throw new Error("Utilisateur inconnu.");
+        const user = await prisma.user.findUnique({
+          where: { email: credentials.email }
+        });
+        if (!user?.passwordHash) return null;
 
-        const isValid = await bcrypt.compare(password, user.password);
-        if (!isValid) throw new Error("Mot de passe incorrect.");
+        const ok = await bcrypt.compare(credentials.password, user.passwordHash);
+        if (!ok) return null;
 
-        return { id: user.id, name: user.name || "Utilisateur", email: user.email };
-      },
+        return { id: user.id, name: user.name || "", email: user.email, image: user.image || null };
+      }
     }),
+
+    // Google (optionnel)
+    // GoogleProvider({
+    //   clientId: process.env.GOOGLE_CLIENT_ID,
+    //   clientSecret: process.env.GOOGLE_CLIENT_SECRET
+    // })
   ],
-  session: { strategy: "jwt" },
-  secret: process.env.NEXTAUTH_SECRET,
-  pages: { signIn: "/auth/signin" },
+
+  pages: {
+    signIn: "/auth/signin"
+  },
+
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user?.id) token.uid = user.id;
+      return token;
+    },
+    async session({ session, token }) {
+      if (token?.uid) session.user.id = token.uid;
+      return session;
+    }
+  }
 };
 
-export default NextAuth(authOptions);
+export default function auth(req, res) {
+  // Important: NextAuth doit tourner en Node (pas “edge”) pour Prisma.
+  return NextAuth(req, res, authOptions);
+}
