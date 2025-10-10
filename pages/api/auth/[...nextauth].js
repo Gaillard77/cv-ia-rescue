@@ -6,18 +6,12 @@ import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import prisma from "../../../lib/prisma";
 import bcrypt from "bcryptjs";
 
-export default NextAuth({
-  // IMPORTANT en hébergement derrière proxy (Vercel)
-  trustHost: true,
-  // active des logs utiles si tu as encore l'écran Error (à retirer ensuite)
-  // debug: true,
-
+export const authOptions = {
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
   secret: process.env.NEXTAUTH_SECRET,
 
   providers: [
-    // Google (facultatif)
     ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
       ? [
           GoogleProvider({
@@ -27,7 +21,6 @@ export default NextAuth({
         ]
       : []),
 
-    // Email / Mot de passe
     CredentialsProvider({
       name: "Identifiants",
       credentials: {
@@ -39,9 +32,7 @@ export default NextAuth({
         if (!email || !password) throw new Error("Email et mot de passe requis");
 
         const user = await prisma.user.findUnique({ where: { email } });
-        if (!user || !user.password) {
-          throw new Error("Identifiants invalides");
-        }
+        if (!user || !user.password) throw new Error("Identifiants invalides");
 
         const ok = await bcrypt.compare(password, user.password);
         if (!ok) throw new Error("Identifiants invalides");
@@ -65,4 +56,7 @@ export default NextAuth({
       return session;
     },
   },
-});
+};
+
+// ⚠️ Important : on exporte aussi le default pour l’API route
+export default NextAuth(authOptions);
