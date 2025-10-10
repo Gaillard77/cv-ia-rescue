@@ -1,478 +1,258 @@
 // pages/index.jsx
-import { useState } from "react";
-import { pdf } from "@react-pdf/renderer";
+import Link from "next/link";
 
-// Templates PDF CV
-import CVProModern from "../components/pdf/CVProModern";
-import CVGoldHeader from "../components/pdf/CVGoldHeader";
-import CVDarkSidebar from "../components/pdf/CVDarkSidebar";
-import CVCleanPro from "../components/pdf/CVCleanPro";
+const Pill = ({ children }) => (
+  <span className="inline-block text-xs md:text-sm px-3 py-1 rounded-full border border-indigo-400/40 bg-indigo-400/10 text-indigo-100">
+    {children}
+  </span>
+);
 
-// Templates PDF LETTRE
-import LetterCascade from "../components/pdf/letters/LetterCascade";
-import LetterPostal   from "../components/pdf/letters/LetterPostal";
-import LetterNanica   from "../components/pdf/letters/LetterNanica";
-import LetterConcept  from "../components/pdf/letters/LetterConcept";
+const Card = ({ title, children, className = "" }) => (
+  <div
+    className={`rounded-2xl border border-white/10 bg-gradient-to-b from-gray-800/40 to-gray-900/60 p-5 shadow-[0_8px_24px_rgba(0,0,0,0.35)] ${className}`}
+  >
+    {title && <h3 className="text-base md:text-lg font-semibold mb-2">{title}</h3>}
+    <div className="text-white/70 text-sm leading-relaxed">{children}</div>
+  </div>
+);
 
-/* =========================
-   HELPERS
-   ========================= */
-async function fetchJSON(url, options){
-  const r = await fetch(url, options);
-  const ct = r.headers.get("content-type") || "";
-  if (ct.includes("application/json")) {
-    const data = await r.json();
-    if(!r.ok) throw new Error(data?.error || `Erreur HTTP ${r.status}`);
-    return data;
-  } else {
-    const txt = await r.text();
-    throw new Error(`Réponse non-JSON (${r.status}). Détail: ${txt.slice(0,200)}...`);
-  }
-}
-
-// Préremplissage intelligent des métadonnées de lettre
-function buildLetterProfileAuto(data, fallbacks = {}) {
-  const p = data?.profile || {};
-  const j = data?.job || {};
-  const { cvName = "", cvTitle = "", cvEmail = "", cvPhone = "", cvLocation = "" } = fallbacks;
-  const cityFromLocation = (loc) => (loc || "").split(",")[0]?.trim() || "";
-
-  return {
-    fullName:  p.fullName || cvName || p.name || "",
-    title:     p.title    || cvTitle || "",
-    email:     p.email    || cvEmail || "",
-    phone:     p.phone    || cvPhone || "",
-    location:  p.location || cvLocation || "",
-    linkedin:  p.linkedin || "",
-    company:         j.company        || data?.company        || "",
-    recruiter:       j.recruiter      || data?.recruiter      || "",
-    companyAddress:  j.address        || j.companyAddress     || data?.companyAddress || "",
-    object:          j.object         || data?.object         || "",
-    city:            p.city || cityFromLocation(p.location || cvLocation),
-    date:            data?.date || new Date().toLocaleDateString(),
-  };
-}
-
-export default function Home() {
-  // ===== États principaux =====
-  const [cvText, setCvText] = useState("");
-  const [offre, setOffre] = useState("");
-  const [outJSON, setOutJSON] = useState(null);
-  const [outLetter, setOutLetter] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState(null);
-  const [extracting, setExtracting] = useState(false);
-
-  // ===== Choix des templates =====
-  const [cvTemplate, setCvTemplate] = useState("dark");      // "modern" | "gold" | "dark" | "clean"
-  const [letterTemplate, setLetterTemplate] = useState("nanica"); // "cascade" | "postal" | "nanica" | "concept"
-
-  // ===== États du formulaire minimal =====
-  const [cvName, setCvName] = useState("");
-  const [cvTitle, setCvTitle] = useState("");
-  const [cvEmail, setCvEmail] = useState("");
-  const [cvPhone, setCvPhone] = useState("");
-  const [cvLocation, setCvLocation] = useState("");
-  const [cvSummary, setCvSummary] = useState("");
-  const [cvSkills, setCvSkills] = useState("");
-  const [cvExp, setCvExp] = useState("");
-  const [cvEdu, setCvEdu] = useState("");
-
-  // ===== Photo =====
-  const [photoUrl, setPhotoUrl] = useState("");
-  const [photoDataUrl, setPhotoDataUrl] = useState("");
-
-  // ===== Upload + extraction (CV fichier) =====
-  function toBase64(buf){
-    let binary=""; const bytes=new Uint8Array(buf);
-    for(let i=0;i<bytes.byteLength;i++) binary+=String.fromCharCode(bytes[i]);
-    return typeof btoa!=="undefined" ? btoa(binary) : Buffer.from(binary,"binary").toString("base64");
-  }
-  async function onFile(e){
-    const f = e.target.files?.[0]; if(!f) return;
-    setErr(null); setExtracting(true);
-    try{
-      const buf = await f.arrayBuffer();
-      const data = await fetchJSON("/api/extract", {
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({ fileName: f.name, fileBase64: toBase64(buf) })
-      });
-      setCvText(data.text);
-    }catch(e){ setErr(e.message || "Erreur d'extraction"); }
-    finally{ setExtracting(false); }
-  }
-
-  // ===== Import photo locale → DataURL =====
-  function onPhotoFile(e){
-    const f = e.target.files?.[0]; if(!f) return;
-    if(!/^image\/(png|jpe?g)$/i.test(f.type)) { setErr("Photo: format accepté JPG/PNG"); return; }
-    const reader = new FileReader();
-    reader.onload = () => setPhotoDataUrl(reader.result);
-    reader.onerror = () => setErr("Impossible de lire la photo.");
-    reader.readAsDataURL(f);
-  }
-
-  // ===== Construit un "texte CV de base" =====
-  function buildBaseCVText(){
-    if (cvText && cvText.trim()) return cvText.trim();
-    return `
-Nom: ${cvName || ""}
-Titre: ${cvTitle || ""}
-Email: ${cvEmail || ""}
-Téléphone: ${cvPhone || ""}
-Lieu: ${cvLocation || ""}
-Résumé: ${cvSummary || ""}
-
-Compétences: ${cvSkills || ""}
-
-Expériences:
-${cvExp || ""}
-
-Formation:
-${cvEdu || ""}
-`.trim();
-  }
-
-  // ===== Génération CV (JSON via API) =====
-  async function generateCV(){
-    setLoading(true); setErr(null); setOutJSON(null);
-    try{
-      const baseText = buildBaseCVText();
-      if(!offre || !offre.trim()) throw new Error("Ajoutez d’abord le texte de l’offre.");
-      const data = await fetchJSON("/api/generate-json", {
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({ cvText: baseText, jobText: offre })
-      });
-      setOutJSON(data);
-    }catch(e){ setErr(e.message || "Erreur"); }
-    finally{ setLoading(false); }
-  }
-
-  // ===== Génération Lettre (auto via API) =====
-  async function generateLetter(){
-    setLoading(true); setErr(null); setOutLetter(null);
-    try{
-      const baseText = buildBaseCVText();
-      if(!offre || !offre.trim()) throw new Error("Ajoutez d’abord le texte de l’offre.");
-      const data = await fetchJSON("/api/generate-json", {
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({ cvText: baseText, jobText: offre })
-      });
-
-      // Profil auto-complété pour la lettre
-      const autoProfile = buildLetterProfileAuto(data, {
-        cvName, cvTitle, cvEmail, cvPhone, cvLocation,
-      });
-
-      setOutLetter({ profile: autoProfile, letter: data.letter });
-    }catch(e){ setErr(e.message || "Erreur"); }
-    finally{ setLoading(false); }
-  }
-
-  // ===== Export PDF CV =====
-  async function exportCVPro(){
-    if(!outJSON) return;
-
-    const effectivePhoto = (photoDataUrl && photoDataUrl.startsWith("data:image")) ? photoDataUrl :
-                           (photoUrl?.trim() ? photoUrl.trim() : "");
-
-    const profile = {
-      ...(outJSON.profile || {}),
-      ...(effectivePhoto ? { photoUrl: effectivePhoto } : {})
-    };
-
-    const props = {
-      profile,
-      skills: outJSON.skills || [],
-      languages: outJSON.languages || [],
-      hobbies: outJSON.hobbies || [],
-      experiences: outJSON.experiences || [],
-      education: outJSON.education || []
-    };
-
-    let Doc;
-    switch (cvTemplate) {
-      case "gold":  Doc = <CVGoldHeader {...props} />; break;
-      case "clean": Doc = <CVCleanPro   {...props} />; break;
-      case "modern":Doc = <CVProModern  {...props} />; break;
-      case "dark":
-      default:       Doc = <CVDarkSidebar {...props} />;
-    }
-
-    const blob = await pdf(Doc).toBlob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = `CV_${cvTemplate}.pdf`; a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  // ===== Export PDF Lettre =====
-  async function exportLetterPDF(){
-    if(!outLetter) return;
-
-    const baseProfile = outLetter.profile || {};
-    const effectivePhoto = (photoDataUrl && photoDataUrl.startsWith("data:image")) ? photoDataUrl :
-                           (photoUrl?.trim() ? photoUrl.trim() : "");
-
-    const profile = {
-      ...baseProfile,
-      ...(effectivePhoto ? { photoUrl: effectivePhoto } : {})
-    };
-
-    // Sélection du template de lettre
-    let Doc;
-    switch (letterTemplate) {
-      case "cascade":
-        Doc = <LetterCascade profile={profile} letter={outLetter.letter} />;
-        break;
-      case "postal":
-        Doc = <LetterPostal profile={profile} letter={outLetter.letter} />;
-        break;
-      case "concept":
-        Doc = <LetterConcept profile={profile} letter={outLetter.letter} />;
-        break;
-      case "nanica":
-      default:
-        Doc = <LetterNanica profile={profile} letter={outLetter.letter} />;
-    }
-
-    const blob = await pdf(Doc).toBlob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = `Lettre_${letterTemplate}.pdf`; a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  // ===== Carte Template (texte seulement, cliquable) =====
-  function TemplateCard({ id, title, selected, onClick }){
-    return (
-      <button
-        onClick={onClick}
-        className={`rounded-xl border transition px-4 py-6 text-center
-          ${selected ? "border-white bg-white/10" : "border-white/20 hover:border-white/60"}`}
-        title={title}
+const PricingCard = ({ badge, price, plan, features = [], ctaText, href, highlight }) => (
+  <div
+    className={`rounded-2xl border p-5 md:p-6 bg-gradient-to-b from-gray-800/40 to-gray-900/60 shadow-[0_10px_28px_rgba(0,0,0,0.35)] ${
+      highlight ? "border-indigo-300/50" : "border-white/10"
+    }`}
+  >
+    <div className="flex items-center justify-between mb-2">
+      <div className="text-white/80 font-medium">{plan}</div>
+      {badge && (
+        <span className="text-[10px] px-2 py-1 rounded-full border border-white/15 text-white/70">
+          {badge}
+        </span>
+      )}
+    </div>
+    <div className="text-3xl font-extrabold mb-3">{price}</div>
+    <ul className="text-white/70 text-sm space-y-1 mb-4 list-disc pl-5">
+      {features.map((f, i) => (
+        <li key={i}>{f}</li>
+      ))}
+    </ul>
+    {href ? (
+      <Link
+        href={href}
+        className={`inline-flex items-center justify-center w-full rounded-xl px-4 py-2.5 text-sm font-semibold ${
+          highlight
+            ? "bg-gradient-to-br from-indigo-500 to-violet-600 hover:brightness-110"
+            : "border border-white/20 hover:border-indigo-400/50"
+        }`}
       >
-        <span className="font-medium">{title}</span>
+        {ctaText}
+      </Link>
+    ) : (
+      <button
+        className={`inline-flex items-center justify-center w-full rounded-xl px-4 py-2.5 text-sm font-semibold ${
+          highlight
+            ? "bg-gradient-to-br from-indigo-500 to-violet-600 hover:brightness-110"
+            : "border border-white/20 hover:border-indigo-400/50"
+        }`}
+      >
+        {ctaText}
       </button>
-    );
-  }
+    )}
+  </div>
+);
 
+export default function Landing() {
   return (
-    <div className="min-h-screen text-white bg-gradient-to-b from-bg1 to-bg2">
-      <div className="max-w-[1100px] w-[92vw] mx-auto py-8">
-        {/* Header — épuré : logo + titre seulement */}
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-xl shadow-soft bg-gradient-to-br from-accent to-indigo-600" />
-          <h1 className="text-3xl font-bold">CV-IA</h1>
+    <div className="min-h-screen bg-[#0b0f19] text-white">
+      {/* NAV */}
+      <nav className="sticky top-0 z-30 backdrop-blur supports-[backdrop-filter]:bg-[#0b0f19]/70 bg-[#0b0f19]/90 border-b border-white/10">
+        <div className="mx-auto w-[92vw] max-w-6xl h-14 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2">
+            <span className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 shadow" />
+            <span className="font-bold">CV-IA</span>
+          </Link>
+          <div className="hidden sm:flex items-center gap-4 text-sm text-white/70">
+            <a href="#features" className="hover:text-white">Fonctionnalités</a>
+            <a href="#how" className="hover:text-white">Comment ça marche</a>
+            <a href="#tarifs" className="hover:text-white">Tarifs</a>
+            <Link
+              href="/app"
+              className="ml-2 rounded-lg px-3 py-1.5 bg-gradient-to-br from-indigo-500 to-violet-600 hover:brightness-110 text-sm font-semibold"
+            >
+              Ouvrir l’app
+            </Link>
+          </div>
         </div>
+      </nav>
 
-        {/* --------- SECTION CV --------- */}
+      {/* HERO */}
+      <header className="relative">
+        <div className="absolute inset-0 bg-[radial-gradient(50%_50%_at_50%_0%,rgba(99,102,241,0.25),transparent_60%)] pointer-events-none" />
+        <div className="mx-auto w-[92vw] max-w-6xl pt-12 pb-10 md:pt-16 md:pb-14">
+          <div className="grid md:grid-cols-[1.15fr,0.85fr] gap-8 md:gap-10 items-start">
+            {/* left */}
+            <div>
+              <div className="mb-3">
+                <Pill>Nouveau — Optimisé ATS • Lettre & Checklists incluses</Pill>
+              </div>
+              <h1 className="text-4xl md:text-5xl font-extrabold leading-[1.05]">
+                Boostez vos
+                <br />
+                candidatures en{" "}
+                <span className="bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent">
+                  30 secondes
+                </span>
+              </h1>
+              <p className="text-white/70 mt-4 max-w-xl">
+                Importez votre CV, collez l’offre d’emploi et obtenez un CV optimisé ATS, une
+                lettre de motivation personnalisée et une checklist d’entretien.
+              </p>
+
+              <div className="flex flex-wrap gap-3 mt-5">
+                <Link
+                  href="/app"
+                  className="rounded-xl px-5 py-3 font-semibold bg-gradient-to-br from-indigo-500 to-violet-600 hover:brightness-110 shadow-[0_10px_30px_rgba(99,102,241,.35)]"
+                >
+                  Commencer
+                </Link>
+                <a
+                  href="#tarifs"
+                  className="rounded-xl px-5 py-3 font-semibold border border-white/15 hover:border-indigo-400/50"
+                >
+                  Rejoindre la bêta
+                </a>
+              </div>
+              <div className="text-white/50 text-xs mt-3">
+                Gratuit pendant la bêta • Annulable à tout moment
+              </div>
+
+              {/* features */}
+              <div id="features" className="grid sm:grid-cols-3 gap-3 mt-8">
+                <Card title="CV adapté à chaque offre">
+                  Ciblage par mots-clés et format compatible ATS pour passer les filtres.
+                </Card>
+                <Card title="Lettre en 1 clic">
+                  Génération instantanée d’une lettre personnalisée, prête à signer.
+                </Card>
+                <Card title="Préparation entretien">
+                  Questions probables et checklist des points à valider.
+                </Card>
+              </div>
+            </div>
+
+            {/* right steps */}
+            <div className="space-y-3">
+              <Card title="1) Importez votre CV">
+                PDF ou Word — détection auto des compétences et expériences clés.
+              </Card>
+              <Card title="2) Collez l’offre d’emploi">
+                Intégration LinkedIn/Indeed ou copier-coller de la description.
+              </Card>
+              <Card title="3) Recevez vos documents">
+                CV optimisé, lettre et checklist — export PDF immédiat.
+              </Card>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* HOW IT WORKS */}
+      <section id="how" className="mx-auto w-[92vw] max-w-6xl py-6 md:py-8">
+        <h2 className="text-xl md:text-2xl font-semibold mb-4">Comment ça marche</h2>
+        <div className="grid md:grid-cols-3 gap-4">
+          <Card title="Analyse ATS">
+            Extraction des mots-clés de l’offre pour maximiser le matching.
+          </Card>
+          <Card title="Personnalisation intelligente">
+            Réécriture du CV et de la lettre pour refléter l’impact et la pertinence.
+          </Card>
+          <Card title="Qualité vérifiée">
+            Score de compatibilité et recommandations concrètes avant export.
+          </Card>
+        </div>
+      </section>
+
+      {/* PRICING */}
+      <section id="tarifs" className="mx-auto w-[92vw] max-w-6xl py-6 md:py-8">
+        <h2 className="text-xl md:text-2xl font-semibold mb-4">Tarifs simples</h2>
+        <div className="grid md:grid-cols-3 gap-5">
+          <PricingCard
+            plan="Gratuit"
+            badge="Beta"
+            price="0€"
+            features={["CV-IA", "Lettre + Checklist", "Export PDF"]}
+            ctaText="Commencer"
+            href="/app"
+          />
+          <PricingCard
+            plan="Pro"
+            badge="Recommandé"
+            price="12€/mois"
+            features={["Illimité", "Templates premium", "Historique & suivis"]}
+            ctaText="Passer en Pro"
+            href="/app"
+            highlight
+          />
+          <PricingCard
+            plan="Coach+"
+            price="49€/mois"
+            features={["Pro +", "Review humain", "Priorité support"]}
+            ctaText="Contacter"
+          />
+        </div>
+      </section>
+
+      {/* ✅ TÉMOIGNAGES */}
+      <section className="mx-auto w-[92vw] max-w-6xl py-12">
+        <h2 className="text-xl md:text-2xl font-semibold mb-6 text-center">Ils ont testé CV-IA</h2>
+        <div className="grid md:grid-cols-3 gap-5">
+          <Card className="text-center">
+            <p className="italic mb-3">
+              “En 5 minutes j’ai eu un CV et une lettre prêts à envoyer. J’ai obtenu une réponse positive dès la première semaine !”
+            </p>
+            <div className="text-white font-medium">— Sarah L.</div>
+            <div className="text-white/50 text-sm">Étudiante en marketing</div>
+          </Card>
+          <Card className="text-center">
+            <p className="italic mb-3">
+              “L’analyse ATS m’a permis de comprendre pourquoi mon CV était rejeté. CV-IA l’a corrigé automatiquement.”
+            </p>
+            <div className="text-white font-medium">— Julien P.</div>
+            <div className="text-white/50 text-sm">Développeur web</div>
+          </Card>
+          <Card className="text-center">
+            <p className="italic mb-3">
+              “Très pratique et rapide. Les lettres sont claires et percutantes. On sent que c’est pensé pour les vrais candidats.”
+            </p>
+            <div className="text-white font-medium">— Marie T.</div>
+            <div className="text-white/50 text-sm">RH en reconversion</div>
+          </Card>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section className="mx-auto w-[92vw] max-w-6xl py-6 md:py-10">
+        <h2 className="text-xl md:text-2xl font-semibold mb-4">FAQ</h2>
         <div className="grid md:grid-cols-2 gap-4">
-          {/* Upload CV */}
-          <div className="border border-white/10 rounded-2xl shadow-soft bg-gradient-to-b from-card1 to-card2 p-5">
-            <label className="block text-white/70 mb-2 font-medium">Votre CV — importez un fichier</label>
-            <input className="mb-2" type="file" accept=".pdf,.docx,.txt" onChange={onFile} />
-            <div className="text-white/70 text-sm">
-              {extracting ? "Extraction en cours…" : "Formats acceptés : PDF, DOCX, TXT"}
-            </div>
-          </div>
-
-          {/* Offre */}
-          <div className="border border-white/10 rounded-2xl shadow-soft bg-gradient-to-b from-card1 to-card2 p-5">
-            <label className="block text-white/70 mb-2 font-medium">Offre d’emploi (texte)</label>
-            <textarea
-              className="w-full min-h-[160px] rounded-xl border border-white/15 bg-[#0f1526] text-white p-3"
-              value={offre}
-              onChange={e=>setOffre(e.target.value)}
-              placeholder="Collez ici la description du poste ciblé."
-            />
-            <div className="text-white/70 text-sm mt-2">Astuce : ciblez une seule offre pour un résultat pertinent.</div>
-          </div>
+          <Card title="Est-ce compatible ATS ?">
+            Oui. La mise en forme et les sections respectent les standards des parseurs ATS.
+          </Card>
+          <Card title="Mes données sont-elles sécurisées ?">
+            Vos fichiers restent privés. Vous pouvez supprimer votre contenu à tout moment.
+          </Card>
+          <Card title="Puis-je annuler ?">
+            Bien sûr, à tout moment, en un clic depuis votre tableau de bord.
+          </Card>
+          <Card title="Langues supportées ?">
+            Français et anglais au lancement. D’autres langues à venir.
+          </Card>
         </div>
+      </section>
 
-        {/* Formulaire minimal pour CV */}
-        <div className="border border-white/10 rounded-2xl shadow-soft bg-gradient-to-b from-card1 to-card2 p-5 mt-6">
-          <h2 className="text-xl font-semibold mb-4">Remplir un CV basique</h2>
-
-          <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-white/70 mb-2 font-medium">Nom & Prénom</label>
-              <input className="w-full rounded-xl border border-white/15 bg-[#0f1526] text-white p-3"
-                     value={cvName} onChange={e=>setCvName(e.target.value)} placeholder="Ex: Jean Dupont" />
-            </div>
-            <div>
-              <label className="block text-white/70 mb-2 font-medium">Titre du poste</label>
-              <input className="w-full rounded-xl border border-white/15 bg-[#0f1526] text-white p-3"
-                     value={cvTitle} onChange={e=>setCvTitle(e.target.value)} placeholder="Ex: Développeur Web" />
-            </div>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-4 mt-4">
-            <div>
-              <label className="block text-white/70 mb-2 font-medium">Email</label>
-              <input className="w-full rounded-xl border border-white/15 bg-[#0f1526] text-white p-3"
-                     value={cvEmail} onChange={e=>setCvEmail(e.target.value)} placeholder="exemple@mail.com" />
-            </div>
-            <div>
-              <label className="block text-white/70 mb-2 font-medium">Téléphone</label>
-              <input className="w-full rounded-xl border border-white/15 bg-[#0f1526] text-white p-3"
-                     value={cvPhone} onChange={e=>setCvPhone(e.target.value)} placeholder="+33 6 12 34 56 78" />
-            </div>
-          </div>
-
-          <div className="mt-4">
-            <label className="block text-white/70 mb-2 font-medium">Localisation</label>
-            <input className="w-full rounded-xl border border-white/15 bg-[#0f1526] text-white p-3"
-                   value={cvLocation} onChange={e=>setCvLocation(e.target.value)} placeholder="Paris, France" />
-          </div>
-
-          {/* Photo : URL + Upload local avec aperçu */}
-          <div className="mt-4 grid md:grid-cols-[1fr,auto] items-start gap-4">
-            <div>
-              <label className="block text-white/70 mb-2 font-medium">URL photo (optionnel)</label>
-              <input
-                className="w-full rounded-xl border border-white/15 bg-[#0f1526] text-white p-3"
-                value={photoUrl}
-                onChange={e=>setPhotoUrl(e.target.value)}
-                placeholder="https://exemple.com/ma-photo.jpg"
-              />
-              <div className="text-white/60 text-xs mt-1">
-                Ou importez un fichier (JPG/PNG) — l’image sera intégrée au PDF.
-              </div>
-
-              <div className="mt-2">
-                <input type="file" accept="image/png,image/jpeg" onChange={onPhotoFile} />
-              </div>
-            </div>
-
-            {/* Aperçu photo */}
-            <div className="flex items-center justify-center">
-              <div className="w-24 h-24 rounded-full overflow-hidden border border-white/20 bg-white/10">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  alt="aperçu photo"
-                  src={photoDataUrl || photoUrl || ""}
-                  className="w-full h-full object-cover"
-                  onError={(e)=>{ e.currentTarget.src=""; }}
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-4">
-            <label className="block text-white/70 mb-2 font-medium">Résumé (À propos)</label>
-            <textarea className="w-full min-h-[120px] rounded-xl border border-white/15 bg-[#0f1526] text-white p-3"
-                      value={cvSummary} onChange={e=>setCvSummary(e.target.value)} placeholder="Décrivez-vous en quelques phrases..." />
-          </div>
-
-          <div className="mt-4">
-            <label className="block text-white/70 mb-2 font-medium">Compétences (séparées par virgule)</label>
-            <input className="w-full rounded-xl border border-white/15 bg-[#0f1526] text-white p-3"
-                   value={cvSkills} onChange={e=>setCvSkills(e.target.value)} placeholder="Ex: React, Node.js, SQL" />
-          </div>
-
-          <div className="mt-4">
-            <label className="block text-white/70 mb-2 font-medium">Expériences (Poste - Entreprise - Années)</label>
-            <textarea className="w-full min-h-[120px] rounded-xl border border-white/15 bg-[#0f1526] text-white p-3"
-                      value={cvExp} onChange={e=>setCvExp(e.target.value)} placeholder="Ex: Développeur - Google - 2020/2023" />
-          </div>
-
-          <div className="mt-4">
-            <label className="block text-white/70 mb-2 font-medium">Formation (Diplôme - École - Année)</label>
-            <textarea className="w-full min-h-[120px] rounded-xl border border-white/15 bg-[#0f1526] text-white p-3"
-                      value={cvEdu} onChange={e=>setCvEdu(e.target.value)} placeholder="Ex: Master Info - Sorbonne - 2018" />
-          </div>
-
-          {/* Actions CV */}
-          <div className="flex gap-3 flex-wrap mt-4">
-            <button
-              className="inline-flex items-center justify-center rounded-xl px-4 py-3 text-white bg-gradient-to-br from-accent to-indigo-600 hover:brightness-110 disabled:opacity-60"
-              onClick={generateCV}
-              disabled={loading || (!cvText && !cvName && !cvTitle)}
-            >
-              {loading ? "Génération CV…" : "Générer CV (JSON structuré)"}
-            </button>
-            <button
-              className="inline-flex items-center justify-center rounded-xl px-4 py-3 text-white bg-gradient-to-br from-emerald-400 to-emerald-600 hover:brightness-110 disabled:opacity-60"
-              onClick={exportCVPro}
-              disabled={!outJSON}
-            >
-              Exporter CV PDF
-            </button>
-          </div>
-
-          {/* Sélecteur texte de mise en page (CV) */}
-          <div className="mt-4">
-            <div className="text-sm text-white/70 mb-2">Mise en page :</div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <TemplateCard id="modern" title="Modern"       selected={cvTemplate==="modern"} onClick={()=>setCvTemplate("modern")} />
-              <TemplateCard id="gold"   title="Gold Header"  selected={cvTemplate==="gold"}   onClick={()=>setCvTemplate("gold")} />
-              <TemplateCard id="dark"   title="Dark Sidebar" selected={cvTemplate==="dark"}   onClick={()=>setCvTemplate("dark")} />
-              <TemplateCard id="clean"  title="Clean Pro"    selected={cvTemplate==="clean"}  onClick={()=>setCvTemplate("clean")} />
-            </div>
-          </div>
-        </div>
-
-        {/* --------- SECTION LETTRE (auto) --------- */}
-        <div className="border border-white/10 rounded-2xl shadow-soft bg-gradient-to-b from-card1 to-card2 p-5 mt-6">
-          <h2 className="text-xl font-semibold mb-2">Lettre de motivation</h2>
-          <p className="text-white/70 text-sm">
-            L’IA va générer la lettre automatiquement à partir de votre CV (upload ou formulaire) et de l’offre.
-          </p>
-
-          <div className="flex gap-3 flex-wrap mt-4">
-            <button
-              className="inline-flex items-center justify-center rounded-xl px-4 py-3 text-white bg-gradient-to-br from-accent to-indigo-600 hover:brightness-110 disabled:opacity-60"
-              onClick={generateLetter}
-              disabled={loading || (!offre || (!cvText && !cvName && !cvTitle))}
-            >
-              {loading ? "Génération Lettre…" : "Générer la lettre automatiquement"}
-            </button>
-            <button
-              className="inline-flex items-center justify-center rounded-xl px-4 py-3 text-white bg-gradient-to-br from-pink-400 to-rose-600 hover:brightness-110 disabled:opacity-60"
-              onClick={exportLetterPDF}
-              disabled={!outLetter}
-            >
-              Exporter Lettre PDF
-            </button>
-          </div>
-
-          {/* Sélecteur texte de mise en page (Lettre) */}
-          <div className="mt-4">
-            <div className="text-sm text-white/70 mb-2">Mise en page de la lettre :</div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <TemplateCard id="cascade" title="Cascade"   selected={letterTemplate==="cascade"} onClick={()=>setLetterTemplate("cascade")} />
-              <TemplateCard id="postal"  title="Postal"    selected={letterTemplate==="postal"}  onClick={()=>setLetterTemplate("postal")} />
-              <TemplateCard id="nanica"  title="Classique" selected={letterTemplate==="nanica"}  onClick={()=>setLetterTemplate("nanica")} />
-              <TemplateCard id="concept" title="Concept"   selected={letterTemplate==="concept"} onClick={()=>setLetterTemplate("concept")} />
-            </div>
-          </div>
-        </div>
-
-        {/* Erreurs */}
-        {err && <div className="text-red-400 mt-3">❌ {err}</div>}
-
-        {/* Aperçus (debug) */}
-        {outJSON && (
-          <div className="border border-white/10 rounded-2xl shadow-soft bg-gradient-to-b from-card1 to-card2 p-5 mt-4">
-            <label className="block text-white/70 mb-2 font-medium">Données CV (aperçu)</label>
-            <pre className="whitespace-pre-wrap m-0 p-3 rounded-xl border border-white/10 bg-[#0e1426] text-[#e9ecf6]">
-{JSON.stringify(outJSON, null, 2)}
-            </pre>
-          </div>
-        )}
-        {outLetter && (
-          <div className="border border-white/10 rounded-2xl shadow-soft bg-gradient-to-b from-card1 to-card2 p-5 mt-4">
-            <label className="block text-white/70 mb-2 font-medium">Lettre générée (aperçu)</label>
-            <pre className="whitespace-pre-wrap m-0 p-3 rounded-xl border border-white/10 bg-[#0e1426] text-[#e9ecf6]">
-{outLetter.letter || ""}
-            </pre>
-          </div>
-        )}
-      </div>
+      {/* FOOTER */}
+      <footer className="mx-auto w-[92vw] max-w-6xl py-10 text-center text-white/50 text-sm">
+        © {new Date().getFullYear()} CV-IA — Fait avec ❤️ pour les candidats
+      </footer>
     </div>
   );
 }
